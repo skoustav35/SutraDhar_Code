@@ -1,0 +1,67 @@
+/*
+ * Cross-cutting polish for the desktop shell.
+ *
+ * These are the details that make a native-feeling app: text selection matches the
+ * accent instead of the UA default, keyboard focus is a consistent soft ring rather
+ * than the browser's harsh outline, scrollbars sit flush with the surface they scroll,
+ * and text rendering stays crisp on the warm off-white backgrounds.
+ *
+ * Scoped to the new layout via [data-new-layout] so the legacy shell is untouched.
+ */
+
+@layer components {
+  [data-new-layout] ::selection {
+    background-color: color-mix(in srgb, var(--v2-background-bg-accent) 24%, transparent);
+    color: var(--v2-text-text-base);
+  }
+
+  /* Keyboard focus only. Pointer interactions keep their own hover/pressed states. */
+  [data-new-layout] :focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--v2-border-border-focus) 70%, transparent);
+    outline-offset: 1px;
+    border-radius: var(--radius-sm);
+  }
+
+  [data-new-layout]
+    :is(button, a, input, textarea, select, [role="button"], [role="menuitem"], [contenteditable]):focus-visible {
+    outline-offset: 1px;
+  }
+
+  /* Opt components that already draw their own focus treatment out of the ring. */
+  [data-new-layout] :is([data-slot], [data-component]):focus-visible:not(
+      :is(button, a, input, textarea, select)
+    ) {
+    outline: none;
+  }
+
+  [data-new-layout] ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  [data-new-layout] ::-webkit-scrollbar-thumb {
+    background-color: var(--v2-overlay-simple-overlay-pressed);
+    border: 3px solid transparent;
+    border-radius: 9999px;
+    background-clip: content-box;
+  }
+
+  [data-new-layout] ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--v2-border-border-strong);
+  }
+
+  [data-new-layout] ::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+
+  [data-new-layout] ::-webkit-scrollbar-corner {
+    background-color: transparent;
+  }
+
+  /* Warm surfaces need slightly heavier rendering to avoid a washed-out look. */
+  [data-new-layout] {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+}

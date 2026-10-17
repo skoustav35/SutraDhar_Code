@@ -1,0 +1,159 @@
+[data-component="session-empty-state"] {
+  container-type: inline-size;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 32px 140px;
+  pointer-events: none;
+  overflow: hidden;
+  user-select: none;
+}
+
+[data-component="session-empty-state"] [data-slot="empty-inner"] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 20px;
+  inline-size: min(100%, 780px);
+  animation: empty-fade-in 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes empty-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Sutradhar Insignia Artifact with ambient radial aura */
+[data-component="session-empty-state"] [data-slot="empty-insignia-aura"] {
+  display: grid;
+  place-items: center;
+  inline-size: 112px;
+  block-size: 112px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(74, 123, 196, 0.12) 0%, rgba(74, 123, 196, 0.03) 60%, transparent 74%);
+}
+
+[data-component="session-empty-state"] [data-slot="empty-insignia"] {
+  display: grid;
+  place-items: center;
+  inline-size: 72px;
+  block-size: 72px;
+  color: #3b71be;
+  filter: drop-shadow(0 6px 20px rgba(59, 113, 190, 0.22));
+}
+
+[data-component="session-empty-state"] [data-slot="empty-insignia"] svg {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+/* Prominent, authoritative prompt headline */
+[data-component="session-empty-state"] [data-slot="empty-title"] {
+  margin: 0;
+  color: var(--v2-text-text-base);
+  font-size: clamp(24px, 4.4cqw, 36px);
+  font-weight: 520;
+  letter-spacing: -0.025em;
+  line-height: 1.28;
+  text-wrap: balance;
+}
+
+[data-component="session-empty-state"] [data-slot="project-name"] {
+  font-weight: 600;
+  color: var(--v2-text-text-base);
+  text-decoration: underline dotted rgba(45, 89, 189, 0.48);
+  text-underline-offset: 6px;
+}
+
+/* Subtle contextual subline to anchor the composition */
+[data-component="session-empty-state"] [data-slot="empty-subline"] {
+  margin: -4px 0 4px;
+  color: var(--v2-text-text-muted);
+  font-size: clamp(13px, 2cqw, 15px);
+  font-weight: 420;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+}
+
+/* Scaled, comfortable suggestion bar */
+[data-component="session-empty-state"] [data-slot="empty-pills"] {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-block-start: 6px;
+  padding: 5px 8px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(41, 101, 157, 0.14);
+  box-shadow:
+    0 2px 6px rgba(15, 42, 74, 0.04),
+    0 10px 24px -8px rgba(15, 42, 74, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  pointer-events: auto;
+}
+
+[data-component="session-empty-state"] [data-slot="empty-pill"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--v2-text-text-muted);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 480;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    transform 150ms ease;
+}
+
+[data-component="session-empty-state"] [data-slot="empty-pill"] svg {
+  color: var(--v2-icon-icon-muted);
+  transition: color 150ms ease;
+}
+
+[data-component="session-empty-state"] [data-slot="empty-pill"]:hover {
+  background: rgba(45, 89, 189, 0.09);
+  color: var(--v2-text-text-base);
+  transform: translateY(-1px);
+}
+
+[data-component="session-empty-state"] [data-slot="empty-pill"]:hover svg {
+  color: var(--v2-icon-icon-accent);
+}
+
+[data-component="session-empty-state"] [data-slot="empty-pill"]:active {
+  transform: translateY(0);
+  background: rgba(45, 89, 189, 0.16);
+}
+
+[data-component="session-empty-state"] [data-slot="pill-divider"] {
+  inline-size: 4px;
+  block-size: 4px;
+  border-radius: 50%;
+  background: rgba(41, 101, 157, 0.25);
+}
+
+@media (max-width: 580px) {
+  [data-component="session-empty-state"] [data-slot="pill-divider"] {
+    display: none;
+  }
+}

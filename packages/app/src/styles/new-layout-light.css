@@ -1,0 +1,327 @@
+/*
+ * The new desktop shell is intentionally light, even when the user's system
+ * prefers dark mode. Keep the legacy shell's theme preference untouched while
+ * giving the workspace a calm sky-blue reading surface and a restrained
+ * blue-gray frame. Saturated cobalt stays an accent, not the canvas.
+ */
+html[data-color-scheme="dark"]:has(body[data-new-layout]),
+html:has(body[data-new-layout]),
+body[data-new-layout] {
+  color-scheme: light;
+  background: #dce8f2;
+  --text-mix-blend-mode: multiply;
+
+  /* v2 surfaces: quiet blue-gray frame, almost-white sky-blue conversation plane. */
+  --v2-background-bg-deep: #dce8f2;
+  --v2-background-bg-base: #f8fcff;
+  --v2-background-bg-layer-01: #eff8fd;
+  --v2-background-bg-layer-02: #e6f3fa;
+  --v2-background-bg-layer-03: #d5eaf6;
+  --v2-background-bg-layer-04: #c2ddeb;
+  --v2-background-bg-inverse: #173a87;
+  --v2-background-bg-contrast: #102d70;
+  --v2-background-bg-button-neutral: #ffffff;
+  --v2-background-bg-accent: #315cc6;
+
+  --v2-text-text-base: #102c4c;
+  --v2-text-text-muted: #476681;
+  --v2-text-text-faint: #6d879e;
+  --v2-text-text-inverse: #f4fbff;
+  --v2-text-text-contrast: #ffffff;
+  --v2-text-text-accent: #2755b8;
+  --v2-text-text-accent-hover: #1d439d;
+  --v2-text-text-code-accent: #214b9f;
+
+  --v2-icon-icon-base: #3f6280;
+  --v2-icon-icon-muted: #6a87a0;
+  --v2-icon-icon-inverse: #ffffff;
+  --v2-icon-icon-contrast: #ffffff;
+  --v2-icon-icon-accent: #2d59bd;
+  --v2-icon-icon-accent-hover: #20479f;
+
+  --v2-border-border-muted: rgba(41, 101, 157, 0.08);
+  --v2-border-border-base: rgba(41, 101, 157, 0.14);
+  --v2-border-border-strong: rgba(41, 101, 157, 0.23);
+  --v2-border-border-inverse: #173a87;
+  --v2-border-border-focus: #3f78d1;
+
+  --v2-overlay-simple-overlay-hover: rgba(56, 126, 190, 0.09);
+  --v2-overlay-simple-overlay-pressed: rgba(56, 126, 190, 0.15);
+  --v2-overlay-simple-overlay-contrast-hover: rgba(16, 45, 112, 0.14);
+  --v2-overlay-simple-overlay-contrast-pressed: rgba(16, 45, 112, 0.22);
+  --v2-overlay-simple-overlay-scrim: rgba(18, 48, 105, 0.2);
+
+  --v2-state-bg-info: #e4f3ff;
+  --v2-state-fg-info: #21528c;
+  --v2-state-border-info: #a9d4f3;
+  --v2-state-bg-danger: #fff0f1;
+  --v2-state-fg-danger: #ad293c;
+  --v2-state-border-danger: #f0b8c0;
+
+  --v2-elevation-raised:
+    0 1px 2px rgba(15, 42, 74, 0.05),
+    0 8px 24px -6px rgba(15, 42, 74, 0.12),
+    0 18px 40px -16px rgba(15, 42, 74, 0.09),
+    0 0 0 1px rgba(34, 88, 140, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --v2-elevation-floating:
+    0 2px 6px rgba(15, 42, 74, 0.07),
+    0 14px 34px -8px rgba(15, 42, 74, 0.16),
+    0 24px 52px -18px rgba(15, 42, 74, 0.12),
+    0 0 0 1px rgba(34, 88, 140, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  --v2-elevation-overlay:
+    0 6px 16px rgba(15, 42, 74, 0.09),
+    0 28px 64px -12px rgba(15, 42, 74, 0.22),
+    0 0 0 1px rgba(34, 88, 140, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+
+  /* Legacy/session-ui aliases used by conversation cards and markdown. */
+  --background-base: #f8fcff;
+  --background-weak: #f0f8fd;
+  --background-strong: #ffffff;
+  --background-stronger: #ffffff;
+  --surface-base: rgba(42, 106, 164, 0.045);
+  --surface-base-hover: rgba(42, 106, 164, 0.08);
+  --surface-base-active: rgba(42, 106, 164, 0.12);
+  --surface-base-interactive-active: rgba(49, 92, 198, 0.12);
+  --surface-inset-base: rgba(42, 106, 164, 0.05);
+  --surface-inset-base-hover: rgba(42, 106, 164, 0.08);
+  --surface-inset-strong: rgba(42, 106, 164, 0.12);
+  --surface-raised-base: rgba(42, 106, 164, 0.045);
+  --surface-float-base: #ffffff;
+  --surface-float-base-hover: #f3faff;
+  --surface-raised-strong: #ffffff;
+  --surface-raised-strong-hover: #ffffff;
+  --surface-raised-stronger: #ffffff;
+  --surface-raised-stronger-hover: #f7fcff;
+  --surface-raised-stronger-non-alpha: #ffffff;
+  --surface-weak: rgba(42, 106, 164, 0.07);
+  --surface-weaker: rgba(42, 106, 164, 0.1);
+  --surface-strong: #ffffff;
+  --surface-interactive-base: #eaf5fc;
+  --surface-interactive-hover: #dceef8;
+  --surface-interactive-weak: #f5fbfe;
+  --surface-interactive-weak-hover: #eaf5fc;
+  --surface-diff-hidden-base: #e7f3ff;
+  --surface-diff-hidden-weak: #f3faff;
+  --surface-diff-hidden-strong: #c5e3ff;
+
+  --input-base: #ffffff;
+  --input-hover: #f4fbff;
+  --input-active: #ffffff;
+  --input-selected: #d9edff;
+  --input-focus: #ffffff;
+  --text-base: #476681;
+  --text-weak: #6d879e;
+  --text-weaker: #a8bfd2;
+  --text-strong: #102c4c;
+  --text-invert-base: #f4fbff;
+  --text-invert-strong: #ffffff;
+  --text-interactive-base: #2d59bd;
+  --text-on-interactive-base: #ffffff;
+  --button-primary-base: #2d59bd;
+  --button-secondary-base: #ffffff;
+  --button-secondary-hover: #e8f4ff;
+  --button-ghost-hover: rgba(42, 106, 164, 0.06);
+  --button-ghost-hover2: rgba(42, 106, 164, 0.1);
+  --border-base: rgba(41, 101, 157, 0.15);
+  --border-hover: rgba(41, 101, 157, 0.24);
+  --border-active: rgba(41, 101, 157, 0.4);
+  --border-selected: #315cc6;
+  --border-focus: #3f78d1;
+  --border-weak-base: #d9ebf8;
+  --border-strong-base: rgba(41, 101, 157, 0.18);
+  --border-interactive-base: #a8ccef;
+  --border-interactive-hover: #7daee3;
+  --border-interactive-active: #315cc6;
+  --border-interactive-selected: #315cc6;
+  --icon-base: #3f6280;
+  --icon-hover: #214b78;
+  --icon-weak: #6d879e;
+}
+
+body[data-new-layout] .workspace-shell {
+  background: var(--v2-background-bg-deep);
+}
+
+/* These explicit rules are intentionally redundant with the variables above.
+   The theme provider can leave a dark scheme on <html>; the new shell must
+   still be visibly light and must not inherit a black canvas or search pill. */
+html[data-color-scheme="dark"] body[data-new-layout],
+body[data-new-layout] {
+  color-scheme: light !important;
+  background: #dce8f2 !important;
+}
+
+html:has(body[data-new-layout]) {
+  color-scheme: light !important;
+  background-color: #dce8f2 !important;
+}
+
+body[data-new-layout] #root,
+body[data-new-layout] .workspace-shell,
+body[data-new-layout] .workspace-shell > main {
+  background: #dce8f2 !important;
+}
+
+body[data-new-layout] .workspace-shell > main [class*="bg-v2-background-bg-base"] {
+  background-color: #f8fcff !important;
+}
+
+body[data-new-layout] .workspace-shell > main [class*="bg-v2-background-bg-layer-01"] {
+  background-color: #eff8fd !important;
+}
+
+/* Elevated, curved chat/session pane with multi-layered Apple-style ambient & contact shadows */
+body[data-new-layout] [data-slot="session-panel-frame"] {
+  border-radius: 18px !important;
+  border: 1px solid rgba(34, 88, 140, 0.13) !important;
+  box-shadow:
+    0 1px 2px rgba(15, 42, 74, 0.05),
+    0 10px 28px -8px rgba(15, 42, 74, 0.14),
+    0 22px 48px -18px rgba(15, 42, 74, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+/* Floating prompt composer pill with layered depth and crisp specular border */
+body[data-new-layout] [data-component="session-prompt-dock"] {
+  background: transparent !important;
+}
+
+body[data-new-layout] [data-component="prompt-input-v2"] {
+  border-radius: 16px !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(34, 88, 140, 0.15) !important;
+  box-shadow:
+    0 2px 5px rgba(15, 42, 74, 0.06),
+    0 12px 30px -8px rgba(15, 42, 74, 0.14),
+    0 22px 44px -16px rgba(15, 42, 74, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+  transition:
+    box-shadow 180ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    border-color 180ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+body[data-new-layout] [data-component="prompt-input-v2"]:focus-within {
+  border-color: rgba(45, 89, 189, 0.34) !important;
+  box-shadow:
+    0 3px 8px rgba(15, 42, 74, 0.08),
+    0 16px 36px -8px rgba(28, 70, 145, 0.18),
+    0 0 0 3px rgba(63, 120, 209, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
+}
+
+/* Titlebar search trigger & active tab pill polish */
+body[data-new-layout] [data-slot="titlebar-search-trigger"][data-desktop="true"] {
+  border-color: rgba(34, 88, 140, 0.16) !important;
+  background-color: #ffffff !important;
+  color: #50718d !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 92%),
+    0 1px 2px rgb(15 42 74 / 6%),
+    0 4px 10px -3px rgb(15 42 74 / 8%) !important;
+}
+
+body[data-new-layout] [data-slot="titlebar-search-trigger"][data-desktop="true"]:is(:hover, :focus-visible) {
+  border-color: #9fbfd7 !important;
+  background-color: #f6fbff !important;
+}
+
+body[data-new-layout] [data-titlebar-tab][data-state="pressed"] {
+  background: #f5fbff !important;
+  box-shadow:
+    0 1px 2px rgba(15, 42, 74, 0.06),
+    0 4px 10px -3px rgba(15, 42, 74, 0.08),
+    0 0 0 1px rgba(34, 88, 140, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+}
+
+body[data-new-layout] [data-component="dialog-v2"]:has(.command-palette-v2) [data-slot="dialog-container"] {
+  border-color: #c4d9e8 !important;
+  background: #ffffff !important;
+}
+
+body[data-new-layout] .command-palette-v2-search [data-component="text-input-v2"],
+body[data-new-layout] .command-palette-v2-search [data-slot="text-input-v2-value"],
+body[data-new-layout] .command-palette-v2-search [data-slot="text-input-v2-input"] {
+  background: transparent !important;
+}
+
+/* Sidebar shell, rail, panel, and flat Codex-style project/session list */
+body[data-new-layout] .workspace-sidebar {
+  --workspace-sidebar-shell-surface: #ecf6fd;
+  --workspace-sidebar-panel-surface: #f8fcff;
+  --workspace-sidebar-project-surface: transparent;
+  --workspace-sidebar-workspace-surface: transparent;
+  --workspace-sidebar-hover-surface: rgba(38, 88, 145, 0.075);
+  --workspace-sidebar-active-surface: rgba(38, 88, 145, 0.12);
+  --workspace-sidebar-accent: #2d59bd;
+  margin-block: 12px;
+  margin-inline-start: 12px;
+  border-radius: 18px !important;
+  border: 1px solid rgba(28, 76, 126, 0.22) !important;
+  background: linear-gradient(180deg, #f2f9ff 0%, #e7f3fc 100%) !important;
+  box-shadow:
+    0 2px 5px rgba(15, 42, 74, 0.08),
+    0 12px 28px -6px rgba(15, 42, 74, 0.16),
+    0 24px 52px -16px rgba(15, 42, 74, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+@media (min-width: 768px) {
+  body[data-new-layout] .workspace-sidebar {
+    margin-block: 16px;
+    margin-inline-start: 14px;
+  }
+}
+
+body[data-new-layout] .workspace-sidebar__rail {
+  background: linear-gradient(180deg, #f2f9ff 0%, #e6f2fb 100%);
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+body[data-new-layout] .workspace-sidebar__rail .workspace-sidebar__icon-button {
+  color: #355876;
+}
+
+body[data-new-layout] .workspace-sidebar__rail .workspace-sidebar__icon-button:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow:
+    0 1px 2px rgba(15, 42, 74, 0.06),
+    0 0 0 1px rgba(34, 88, 140, 0.12);
+}
+
+body[data-new-layout] .workspace-sidebar__panel {
+  border-radius: 17px !important;
+  background: var(--workspace-sidebar-panel-surface) !important;
+  border-inline-start: 1px solid rgba(28, 76, 126, 0.15) !important;
+  box-shadow:
+    -6px 0 18px -6px rgba(15, 42, 74, 0.11),
+    -1px 0 2px rgba(15, 42, 74, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+body[data-new-layout] .workspace-sidebar .workspace-sidebar__open-project {
+  border-radius: 9px;
+  border: 1px solid rgba(28, 76, 126, 0.12);
+  background: #ffffff;
+  box-shadow:
+    0 1px 2px rgba(15, 42, 74, 0.04),
+    0 4px 10px -4px rgba(15, 42, 74, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+body[data-new-layout] .workspace-sidebar__project {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body[data-new-layout] .workspace-sidebar__workspace {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+

@@ -1,0 +1,8 @@
+{
+  "name": "opencode-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "packageManager": "bun@1.3.14"
+}

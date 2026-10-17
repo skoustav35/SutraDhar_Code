@@ -1,0 +1,65 @@
+[data-component="sutradhar-wordmark"] {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  inline-size: 100%;
+  user-select: none;
+  pointer-events: none;
+}
+
+[data-component="sutradhar-wordmark"] [data-slot="sutradhar-name"] {
+  display: block;
+  padding-inline: 0.04em;
+  padding-block-end: 0.08em;
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
+  font-size: clamp(44px, 15.5cqw, 104px);
+  font-weight: 500;
+  font-style: italic;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  background: linear-gradient(180deg, #2b4f93 0%, #4a7bc4 55%, #9cc0e6 120%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  filter: drop-shadow(0 6px 14px rgba(43, 79, 147, 0.14));
+}
+
+[data-component="sutradhar-wordmark"] [data-slot="sutradhar-rule"] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  inline-size: min(46%, 220px);
+}
+
+[data-component="sutradhar-wordmark"] [data-slot="sutradhar-rule"] i {
+  flex: 1;
+  block-size: 1px;
+  background: linear-gradient(90deg, transparent, rgba(60, 110, 180, 0.38));
+}
+
+[data-component="sutradhar-wordmark"] [data-slot="sutradhar-rule"] i:last-child {
+  background: linear-gradient(270deg, transparent, rgba(60, 110, 180, 0.38));
+}
+
+[data-component="sutradhar-wordmark"] [data-slot="sutradhar-rule"] b {
+  flex: 0 0 6px;
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: 1.5px;
+  background: #4a7bc4;
+  opacity: 0.75;
+  transform: rotate(45deg);
+}
+
+[data-component="sutradhar-wordmark"] [data-slot="sutradhar-script"] {
+  font-family: "Nirmala UI", "Noto Sans Devanagari", "Mangal", "Kohinoor Devanagari", sans-serif;
+  font-size: clamp(14px, 3.6cqw, 22px);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.28em;
+  padding-inline-start: 0.28em;
+  color: #6f90b8;
+}

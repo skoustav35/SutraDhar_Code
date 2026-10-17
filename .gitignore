@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+
+# Next.js & Vercel
+.next/
+.vercel/
+
+# Build outputs & caches
+dist/
+dist-node/
+ts-dist/
+out/
+build/
+.turbo/
+.cache/
+.typecheck-profiles/
+*.tsbuildinfo
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE & editors
+.idea/
+*.swp
+*~
+Session.vim
+
+# Worktrees & temp
+.worktrees/
+tmp/
+playground/
+.sst/
+.codex/
+**/.serena/
+**/.omo/
+/result
+refs/
+/opencode.json
+a.out
+target/
+.scripts/
+.direnv/
+opencode-d
