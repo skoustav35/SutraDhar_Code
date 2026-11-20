@@ -1,6 +1,6 @@
 import windowState from "electron-window-state"
-import { resolveThemeVariant } from "@opencode-ai/ui/theme/resolve"
-import type { DesktopTheme } from "@opencode-ai/ui/theme/types"
+import { resolveThemeVariant } from "@sutradhar/ui/theme/resolve"
+import type { DesktopTheme } from "@sutradhar/ui/theme/types"
 import oc2ThemeJson from "../../../ui/src/theme/themes/oc-2.json"
 import { randomUUID } from "node:crypto"
 import { rmSync } from "node:fs"
@@ -180,7 +180,7 @@ export function createMainWindow(id: string = randomUUID()) {
     height: state.height,
     show: false,
     autoHideMenuBar: true,
-    title: "OpenCode",
+    title: "Sutradhar",
     icon: iconPath(),
     backgroundColor: backgroundColor ?? defaultBackgroundColor(),
     ...(process.platform === "darwin"
@@ -285,7 +285,7 @@ function windowStateFile(id: string) {
 // Mirrors windowStorage() in packages/app/src/utils/persist.ts, which names
 // the per-window renderer store this window persists its tabs into.
 function windowDataFile(id: string) {
-  return `opencode.window.${id.replace(/[^a-zA-Z0-9._-]/g, "-")}.dat`
+  return `sutradhar.window.${id.replace(/[^a-zA-Z0-9._-]/g, "-")}.dat`
 }
 
 export function registerRendererProtocol() {
@@ -342,7 +342,74 @@ function loadWindow(win: BrowserWindow, html: string) {
   void win.loadURL(`${rendererProtocol}://${rendererHost}/${html}`)
 }
 
+const devErrorSessions = new WeakSet<Electron.Session>()
+const devErrorHandlers = new Map<number, (error: string, url: string) => void>()
+const TRANSIENT_DEV_MODULE_ERRORS = new Set([
+  "net::ERR_NETWORK_CHANGED",
+  "net::ERR_NO_BUFFER_SPACE",
+  "net::ERR_CONNECTION_RESET",
+  "net::ERR_CONNECTION_REFUSED",
+  "net::ERR_TIMED_OUT",
+])
+
+function wireDevModuleRecovery(win: BrowserWindow, name: string) {
+  const devUrl = process.env.ELECTRON_RENDERER_URL
+  if (!devUrl || !URL.canParse(devUrl)) return
+
+  const devOrigin = new URL(devUrl).origin
+  const webContentsId = win.webContents.id
+  const ses = win.webContents.session
+  if (!devErrorSessions.has(ses)) {
+    devErrorSessions.add(ses)
+    ses.webRequest.onErrorOccurred((details) => {
+      if (details.webContentsId === undefined) return
+      devErrorHandlers.get(details.webContentsId)?.(details.error, details.url)
+    })
+  }
+
+  let retries = 0
+  let timer: ReturnType<typeof setTimeout> | undefined
+
+  const scheduleRetry = (error: string, url: string) => {
+    if (timer || win.isDestroyed() || win.webContents.isDestroyed()) return
+    timer = setTimeout(() => {
+      timer = undefined
+      if (win.isDestroyed() || win.webContents.isDestroyed()) return
+      void win.webContents
+        .executeJavaScript("Boolean(document.getElementById('root')?.childElementCount)")
+        .then((mounted) => {
+          if (mounted) {
+            retries = 0
+            return
+          }
+          if (retries >= 4 || win.isDestroyed() || win.webContents.isDestroyed()) return
+          retries += 1
+          writeLog(
+            "window",
+            "retrying renderer after dev module network error",
+            { window: name, attempt: retries, error, url },
+            "warn",
+          )
+          win.webContents.reload()
+        })
+        .catch(() => undefined)
+    }, 350)
+  }
+
+  devErrorHandlers.set(webContentsId, (error, url) => {
+    if (!url.startsWith(devOrigin)) return
+    if (!TRANSIENT_DEV_MODULE_ERRORS.has(error)) return
+    scheduleRetry(error, url)
+  })
+
+  win.on("closed", () => {
+    if (timer) clearTimeout(timer)
+    devErrorHandlers.delete(webContentsId)
+  })
+}
+
 function wireWindowRecovery(win: BrowserWindow, name: string) {
+  wireDevModuleRecovery(win, name)
   let showing = false
   const sampler = createUnresponsiveSampler(win, name)
 

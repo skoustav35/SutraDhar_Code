@@ -1,6 +1,6 @@
-import type { Session } from "@opencode-ai/sdk/v2/client"
-import { preloadMarkdown } from "@opencode-ai/session-ui/markdown-cache"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
+import type { Session } from "@sutradhar/sdk/v2/client"
+import { preloadMarkdown } from "@sutradhar/session-ui/markdown-cache"
+import { useDialog } from "@sutradhar/ui/context/dialog"
 import { useQuery } from "@tanstack/solid-query"
 import { DateTime } from "luxon"
 import { type Accessor, createEffect, createMemo, createRoot, type JSX, startTransition } from "solid-js"
@@ -18,8 +18,9 @@ import { sessionHasOpenTab, useTabs } from "@/context/tabs"
 import { compareSessionTime, displayName, errorMessage, projectForSession } from "@/pages/layout/helpers"
 import { useSessionTabAvatarState } from "@/pages/layout/project-avatar-state"
 import { pathKey } from "@/utils/path-key"
+import { loadUnifiedHomeSessionIndex } from "@/utils/session-index-fallback"
 import { showToast } from "@/utils/toast"
-import { Binary } from "@opencode-ai/core/util/binary"
+import { Binary } from "@sutradhar/core/util/binary"
 import { archiveHomeSession } from "../home-session-archive"
 import type { HomeController } from "./home-controller"
 
@@ -66,11 +67,7 @@ export function createHomeSessionsController(home: HomeController) {
       if (!ctx) return { sessions: [], eventSequence: 0 }
       const cache = homeSessions()
       const eventSequence = cache.eventSequence()
-      const index = await loadHomeSessionIndex(
-        (input, options) => ctx.sdk.client.v2.session.list(input, options),
-        eventSequence,
-        signal,
-      )
+      const index = await loadUnifiedHomeSessionIndex(ctx, eventSequence, signal)
       cache.complete(eventSequence)
       return index
     },
@@ -131,7 +128,7 @@ export function createHomeSessionsController(home: HomeController) {
       })
   })
 
-  command.register("home.palette", () => [
+  command.register("command.palette", () => [
     {
       id: "command.palette",
       title: language.t("command.palette"),

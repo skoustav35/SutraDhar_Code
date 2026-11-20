@@ -58,7 +58,7 @@ export interface Interface {
   readonly resolve: (input: ResolveInput) => Effect.Effect<Target, PathError | FSUtil.Error>
 }
 
-export class Service extends Context.Service<Service, Interface>()("@opencode/v2/LocationMutation") {}
+export class Service extends Context.Service<Service, Interface>()("@sutradhar/v2/LocationMutation") {}
 
 interface ResolvedPath {
   readonly canonical: string
@@ -81,7 +81,7 @@ const layer = Layer.effect(
   Effect.gen(function* () {
     const fs = yield* FSUtil.Service
     const location = yield* Location.Service
-    const locationRoot = yield* fs.realPath(location.directory)
+    const locationRoot = yield* fs.realPath(location.directory).pipe(Effect.catch(() => Effect.succeed(location.directory)))
 
     function notFound<A>(effect: Effect.Effect<A, FSUtil.Error>) {
       return effect.pipe(Effect.catchReason("PlatformError", "NotFound", () => Effect.succeed(undefined)))

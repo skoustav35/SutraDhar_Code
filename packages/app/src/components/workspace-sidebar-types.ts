@@ -1,4 +1,4 @@
-import type { Session } from "@opencode-ai/sdk/v2/client"
+import type { Session } from "@sutradhar/sdk/v2/client"
 import type { Accessor } from "solid-js"
 import type { useLanguage } from "@/context/language"
 import type { ServerConnection } from "@/context/server"

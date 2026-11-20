@@ -1,25 +1,27 @@
-import { Database } from "@opencode-ai/core/database/database"
-import { LocationServiceMap } from "@opencode-ai/core/location-services"
-import { Location } from "@opencode-ai/core/location"
-import { AbsolutePath } from "@opencode-ai/core/schema"
-import { SessionV2 } from "@opencode-ai/core/session"
-import { SessionTable } from "@opencode-ai/core/session/sql"
-import { WorkspaceV2 } from "@opencode-ai/core/workspace"
+import { existsSync } from "node:fs"
+import { Database } from "@sutradhar/core/database/database"
+import { LocationServiceMap } from "@sutradhar/core/location-services"
+import { Location } from "@sutradhar/core/location"
+import { AbsolutePath } from "@sutradhar/core/schema"
+import { SessionV2 } from "@sutradhar/core/session"
+import { SessionTable } from "@sutradhar/core/session/sql"
+import { WorkspaceV2 } from "@sutradhar/core/workspace"
 import { eq } from "drizzle-orm"
 import { Effect, Layer, Schema } from "effect"
 import { HttpRouter } from "effect/unstable/http"
 import { HttpApiMiddleware } from "effect/unstable/httpapi"
-import { InvalidRequestError, SessionNotFoundError } from "@opencode-ai/protocol/errors"
+import { InvalidRequestError, SessionNotFoundError } from "@sutradhar/protocol/errors"
 import type { LocationServices } from "../location"
 
 export class SessionLocationMiddleware extends HttpApiMiddleware.Service<
   SessionLocationMiddleware,
   { provides: LocationServices }
->()("@opencode/HttpApiSessionLocation", {
+>()("@sutradhar/HttpApiSessionLocation", {
   error: [InvalidRequestError, SessionNotFoundError],
 }) {}
 
 const decodeSessionID = Schema.decodeUnknownEffect(SessionV2.ID)
+const safeDirectory = (candidate: string) => (existsSync(candidate) ? candidate : process.cwd())
 
 export const sessionLocationLayer = Layer.effect(
   SessionLocationMiddleware,
@@ -55,7 +57,7 @@ export const sessionLocationLayer = Layer.effect(
           Effect.provide(
             locations.get(
               Location.Ref.make({
-                directory: AbsolutePath.make(row.directory),
+                directory: AbsolutePath.make(safeDirectory(row.directory)),
                 workspaceID: row.workspaceID ? WorkspaceV2.ID.make(row.workspaceID) : undefined,
               }),
             ),

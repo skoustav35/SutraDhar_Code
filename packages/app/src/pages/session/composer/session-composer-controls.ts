@@ -1,4 +1,4 @@
-import { base64Encode } from "@opencode-ai/core/util/encode"
+import { base64Encode } from "@sutradhar/core/util/encode"
 import { createQuery } from "@tanstack/solid-query"
 import { useNavigate, useSearchParams } from "@solidjs/router"
 import { type Accessor, createMemo } from "solid-js"
@@ -34,14 +34,17 @@ export function createPromptInputController(input: {
   const providersQuery = createQuery(() => input.queryOptions.providers(pathKey(sdk().directory)))
 
   return createMemo<PromptInputControls>(() => {
+    const isChatMode = layout.appMode.isChat()
     return {
       agents: {
         available: sync().data.agent,
-        options: local.agent.list().map((agent) => agent.name),
-        current: local.agent.current()?.name ?? "",
+        options: isChatMode ? ["chat"] : local.agent.list().map((agent) => agent.name),
+        current: isChatMode ? "chat" : (local.agent.current()?.name ?? ""),
         loading: agentsQuery.isLoading,
-        visible: local.agent.visible(),
-        select: local.agent.set,
+        visible: !isChatMode && local.agent.visible(),
+        select: (name) => {
+          if (!isChatMode) local.agent.set(name)
+        },
       },
       model: {
         selection: input.model ?? local.model,

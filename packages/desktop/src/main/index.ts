@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { mkdirSync, rmSync } from "node:fs"
+import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import * as http from "node:http"
 import { createServer } from "node:net"
 import { homedir, tmpdir } from "node:os"
@@ -32,6 +32,7 @@ import {
   type SidecarListener,
 } from "./server"
 import { setupAutoUpdater, showUpdaterDialog } from "./updater"
+import { checkAndApplyAdminGradleUpdate } from "./gradle-updater"
 import { safeWebContentsURL } from "./window-state"
 import {
   getLastFocusedWindow,
@@ -49,23 +50,25 @@ import { migrate } from "./migrate"
 import { cleanupStoreFiles } from "./store-cleanup"
 import { startBackgroundCli } from "./background-cli"
 import { setNativeTranslations } from "./native-translations"
+import { ComputerUseService } from "./computer-use/service"
 
 const APP_NAMES: Record<string, string> = {
-  dev: "OpenCode Dev",
-  beta: "OpenCode Beta",
-  prod: "OpenCode",
+  dev: "Sutradhar Dev",
+  beta: "Sutradhar Beta",
+  prod: "Sutradhar",
 }
 const APP_IDS: Record<string, string> = {
-  dev: "ai.opencode.desktop.dev",
-  beta: "ai.opencode.desktop.beta",
-  prod: "ai.opencode.desktop",
+  dev: "ai.sutradhar.desktop.dev",
+  beta: "ai.sutradhar.desktop.beta",
+  prod: "ai.sutradhar.desktop",
 }
-const TEST_ONBOARDING = process.env.OPENCODE_TEST_ONBOARDING === "1"
-const SIDECAR_VERSION = process.env.OPENCODE_SIDECAR_V2 === "1" ? "v2" : "v1"
+const TEST_ONBOARDING = process.env.SUTRADHAR_TEST_ONBOARDING === "1"
+const SIDECAR_VERSION = process.env.SUTRADHAR_SIDECAR_V2 === "1" ? "v2" : "v1"
 const jsCallStackFeature = "DocumentPolicyIncludeJSCallStacksInCrashReports"
 
 let logger: ReturnType<typeof initLogging>
 let server: SidecarListener | null = null
+let computerUse: ComputerUseService | null = null
 
 const pendingDeepLinks: string[] = []
 
@@ -112,6 +115,17 @@ function ensureLoopbackNoProxy() {
   upsert("no_proxy")
 }
 
+function isPortAvailable(port: number) {
+  return new Promise<boolean>((resolve) => {
+    const tester = createServer()
+    tester.once("error", () => resolve(false))
+    tester.once("listening", () => {
+      tester.close(() => resolve(true))
+    })
+    tester.listen(port, "127.0.0.1")
+  })
+}
+
 const main = Effect.gen(function* () {
   contextMenu({ showSaveImageAs: true, showLookUpSelection: false, showSearchWithGoogle: false })
 
@@ -120,30 +134,31 @@ const main = Effect.gen(function* () {
     process.chdir(homedir())
   } catch {}
 
-  process.env.OPENCODE_DISABLE_EMBEDDED_WEB_UI = "true"
+  process.env.SUTRADHAR_DISABLE_EMBEDDED_WEB_UI = "true"
 
-  const appId = app.isPackaged ? APP_IDS[CHANNEL] : "ai.opencode.desktop.dev"
+  const appId = app.isPackaged ? APP_IDS[CHANNEL] : "ai.sutradhar.desktop.dev"
   const onboardingTestRoot = ((): string | undefined => {
     if (!TEST_ONBOARDING) return
 
-    const root = join(tmpdir(), `opencode-onboarding-${randomUUID()}`)
+    const root = join(tmpdir(), `sutradhar-onboarding-${randomUUID()}`)
     rmSync(root, { recursive: true, force: true })
     ;["data", "config", "cache", "state", "desktop", "session"].forEach((dir) =>
       mkdirSync(join(root, dir), { recursive: true }),
     )
-    process.env.OPENCODE_DB = ":memory:"
+    process.env.SUTRADHAR_DB = ":memory:"
     process.env.XDG_DATA_HOME = join(root, "data")
     process.env.XDG_CONFIG_HOME = join(root, "config")
     process.env.XDG_CACHE_HOME = join(root, "cache")
     process.env.XDG_STATE_HOME = join(root, "state")
     return root
   })()
-  app.setName(app.isPackaged ? APP_NAMES[CHANNEL] : "OpenCode Dev")
+  app.setName(app.isPackaged ? APP_NAMES[CHANNEL] : "Sutradhar Dev")
   app.setAppUserModelId(appId)
-  app.setPath(
-    "userData",
-    onboardingTestRoot ? join(onboardingTestRoot, "desktop") : join(app.getPath("appData"), appId),
-  )
+  const sutradharUserDataRoot = join(homedir(), ".sutradhar", "desktop", appId)
+  if (!onboardingTestRoot) {
+    migrateLegacyDesktopUserData(join(app.getPath("appData"), appId), sutradharUserDataRoot)
+  }
+  app.setPath("userData", onboardingTestRoot ? join(onboardingTestRoot, "desktop") : sutradharUserDataRoot)
   if (onboardingTestRoot) app.setPath("sessionData", join(onboardingTestRoot, "session"))
   initializeOldLayoutEligibility(app.getPath("userData"))
   logger = initLogging()
@@ -166,6 +181,8 @@ const main = Effect.gen(function* () {
   )
   const stopSidecars = async () => {
     await killSidecar()
+    await computerUse?.stop()
+    computerUse = null
     wslServers.stopAll()
   }
   const relaunch = () => {
@@ -188,22 +205,24 @@ const main = Effect.gen(function* () {
     onboardingTest: Boolean(onboardingTestRoot),
   })
 
-  ensureLoopbackNoProxy()
-  useEnvProxy()
-  app.commandLine.appendSwitch("proxy-bypass-list", "<-loopback>")
-  const features = app.commandLine.getSwitchValue("enable-features")
-  app.commandLine.appendSwitch("enable-features", features ? `${jsCallStackFeature},${features}` : jsCallStackFeature)
-  if (!app.isPackaged) app.commandLine.appendSwitch("remote-debugging-port", "9222")
-
   if (!app.requestSingleInstanceLock()) {
     app.quit()
     return
   }
 
+  ensureLoopbackNoProxy()
+  useEnvProxy()
+  app.commandLine.appendSwitch("proxy-bypass-list", "<-loopback>")
+  const features = app.commandLine.getSwitchValue("enable-features")
+  app.commandLine.appendSwitch("enable-features", features ? `${jsCallStackFeature},${features}` : jsCallStackFeature)
+  if (!app.isPackaged && (yield* Effect.promise(() => isPortAvailable(9222)))) {
+    app.commandLine.appendSwitch("remote-debugging-port", "9222")
+  }
+
   const shellEnv = preferAppEnv(app.getPath("userData"))
 
   app.on("second-instance", (_event: Event, argv: string[]) => {
-    const urls = argv.filter((arg: string) => arg.startsWith("opencode://"))
+    const urls = argv.filter((arg: string) => arg.startsWith("sutradhar://"))
     if (urls.length) {
       logger.log("deep link received via second-instance", { urls })
       emitDeepLinks(urls)
@@ -268,10 +287,16 @@ const main = Effect.gen(function* () {
       }),
     ),
   )
-  app.setAsDefaultProtocolClient("opencode")
+  app.setAsDefaultProtocolClient("sutradhar")
   registerRendererProtocol()
   setDockIcon()
   const updater = setupAutoUpdater(stopSidecars)
+  computerUse = new ComputerUseService({
+    log: (message, metadata) => logger.log(message, metadata),
+    warn: (message, metadata) => logger.warn(message, metadata),
+    error: (message, metadata) => logger.error(message, metadata),
+  })
+  yield* Effect.promise(() => computerUse?.start() ?? Promise.resolve({}))
   const menuDeps = {
     trigger: (id: string) => {
       const win = getLastFocusedWindow()
@@ -310,9 +335,16 @@ const main = Effect.gen(function* () {
     setNativeTranslations: (bundle) => {
       if (setNativeTranslations(bundle)) createMenu(menuDeps)
     },
+    computerUse: {
+      status: () => computerUse?.status() ?? Promise.resolve({ ready: false }),
+      start: () => computerUse?.start() ?? Promise.resolve({}),
+      stop: () => computerUse?.stop() ?? Promise.resolve(),
+    },
   })
   registerWslIpcHandlers(wslServers)
+  Object.assign(process.env, computerUse.env())
   void updater.start()
+  void checkAndApplyAdminGradleUpdate({ stopSidecars, logger })
   const updateTimer = setInterval(() => void updater.check(), 10 * 60 * 1000)
   updateTimer.unref()
   app.once("will-quit", () => clearInterval(updateTimer))
@@ -348,7 +380,7 @@ const main = Effect.gen(function* () {
     }
 
     const port = yield* Effect.gen(function* () {
-      const fromEnv = process.env.OPENCODE_PORT
+      const fromEnv = process.env.SUTRADHAR_PORT
       if (fromEnv) {
         const parsed = Number.parseInt(fromEnv, 10)
         if (!Number.isNaN(parsed)) return parsed
@@ -386,7 +418,7 @@ const main = Effect.gen(function* () {
     server = listener
     yield* Deferred.succeed(serverReady, {
       url,
-      username: "opencode",
+      username: "sutradhar",
       password,
     })
 
@@ -420,5 +452,44 @@ const main = Effect.gen(function* () {
   const windows = restoreMainWindows()
   if (windows.length) createMenu(menuDeps)
 })
+
+const SKIP_DESKTOP_MIGRATION = new Set([
+  "lockfile",
+  "Cache",
+  "Code Cache",
+  "GPUCache",
+  "DawnGraphiteCache",
+  "DawnWebGPUCache",
+  "Crashpad",
+  "logs",
+])
+
+function copyDesktopEntries(source: string, destination: string) {
+  const entries = readdirSync(source, { withFileTypes: true })
+  for (const entry of entries) {
+    if (SKIP_DESKTOP_MIGRATION.has(entry.name)) continue
+    const from = join(source, entry.name)
+    const to = join(destination, entry.name)
+    if (entry.isDirectory()) {
+      mkdirSync(to, { recursive: true })
+      copyDesktopEntries(from, to)
+      continue
+    }
+    if (!entry.isFile() || existsSync(to)) continue
+    try {
+      copyFileSync(from, to)
+    } catch {}
+  }
+}
+
+function migrateLegacyDesktopUserData(source: string, destination: string) {
+  const marker = join(destination, ".migrated-from-appdata")
+  if (existsSync(marker) || !existsSync(source)) return
+  mkdirSync(destination, { recursive: true })
+  try {
+    copyDesktopEntries(source, destination)
+    writeFileSync(marker, new Date().toISOString())
+  } catch {}
+}
 
 Effect.runFork(main)

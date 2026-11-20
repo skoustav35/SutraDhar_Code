@@ -1,7 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512"><svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="512" height="512" fill="#131010"></rect>
-<path d="M320 224V352H192V224H320Z" fill="#5A5858"></path>
-<path fill-rule="evenodd" clip-rule="evenodd" d="M384 416H128V96H384V416ZM320 160H192V352H320V160Z" fill="white"></path>
-</svg><style>@media (prefers-color-scheme: light) { :root { filter: none; } }
-@media (prefers-color-scheme: dark) { :root { filter: none; } }
-</style></svg>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sutradhar-bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1E3A8A"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#sutradhar-bg)"/>
+  <path fill-rule="evenodd" clip-rule="evenodd" d="M294 96C365.797 96 424 154.203 424 226C424 278.423 392.942 323.61 348.204 344.203L317.85 313.85C348.03 297.278 368.5 265.179 368.5 228.5C368.5 174.652 324.848 131 271 131C234.14 131 202.041 151.47 185.469 181.65L155.115 151.296C175.708 106.558 241.577 96 294 96Z" fill="#F8FAFC"/>
+  <path fill-rule="evenodd" clip-rule="evenodd" d="M218 416C146.203 416 88 357.797 88 286C88 233.577 119.058 188.39 163.796 167.797L194.15 198.15C163.97 214.722 143.5 246.821 143.5 283.5C143.5 337.348 187.152 381 241 381C277.86 381 309.959 360.53 326.531 330.35L356.885 360.704C336.292 405.442 270.423 416 218 416Z" fill="#F8FAFC"/>
+  <rect x="256" y="216" width="56" height="56" rx="6" transform="rotate(45 256 216)" fill="#F59E0B"/>
+</svg>

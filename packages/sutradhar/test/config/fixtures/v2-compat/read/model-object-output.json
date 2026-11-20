@@ -1,0 +1,4 @@
+{
+  "$schema": "https://sutradhar.ai/config.json",
+  "model": "anthropic/claude-sonnet"
+}

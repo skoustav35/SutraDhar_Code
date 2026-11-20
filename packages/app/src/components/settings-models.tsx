@@ -1,9 +1,9 @@
-import { useFilteredList } from "@opencode-ai/ui/hooks"
-import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
-import { Switch } from "@opencode-ai/ui/switch"
-import { Icon } from "@opencode-ai/ui/icon"
-import { IconButton } from "@opencode-ai/ui/icon-button"
-import { TextField } from "@opencode-ai/ui/text-field"
+import { useFilteredList } from "@sutradhar/ui/hooks"
+import { ProviderIcon } from "@sutradhar/ui/provider-icon"
+import { Switch } from "@sutradhar/ui/switch"
+import { Icon } from "@sutradhar/ui/icon"
+import { IconButton } from "@sutradhar/ui/icon-button"
+import { TextField } from "@sutradhar/ui/text-field"
 import { type Component, For, Show } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { useModels } from "@/context/models"
@@ -12,6 +12,14 @@ import { SettingsList } from "./settings-list"
 import { SettingsServerPicker, SettingsServerScope } from "./settings-server-picker"
 
 type ModelItem = ReturnType<ReturnType<typeof useModels>["list"]>[number]
+
+const compareModels = (a: ModelItem, b: ModelItem) => {
+  const aOrder = (a as { sortOrder?: number }).sortOrder
+  const bOrder = (b as { sortOrder?: number }).sortOrder
+  const order = (typeof aOrder === "number" ? aOrder : Number.POSITIVE_INFINITY) -
+    (typeof bOrder === "number" ? bOrder : Number.POSITIVE_INFINITY)
+  return order !== 0 ? order : a.name.localeCompare(b.name)
+}
 
 const ListLoadingState: Component<{ label: string }> = (props) => {
   return (
@@ -48,7 +56,7 @@ const SettingsModelsContent: Component = () => {
     items: (_filter) => models.list(),
     key: (x) => `${x.provider.id}:${x.id}`,
     filterKeys: ["provider.name", "name", "id"],
-    sortBy: (a, b) => a.name.localeCompare(b.name),
+    sortBy: compareModels,
     groupBy: (x) => x.provider.id,
     sortGroupsBy: (a, b) => {
       const aIndex = popularProviders.indexOf(a.category)
@@ -72,16 +80,7 @@ const SettingsModelsContent: Component = () => {
         <div class="flex flex-col gap-4 pt-6 pb-6 max-w-[720px]">
           <div class="flex items-center justify-between gap-4">
             <h2 class="text-16-medium text-text-strong">{language.t("settings.models.title")}</h2>
-            <div class="flex items-center gap-2">
-              <button
-                type="button"
-                class="inline-flex h-7 items-center gap-1.5 rounded-md border border-border-weak-base bg-surface-base px-2.5 text-12-medium text-text-strong transition-colors hover:bg-surface-raised-base-hover"
-                onClick={() => window.open(models.adminUrl, "_blank", "noopener,noreferrer")}
-              >
-                <span>Model Admin Panel</span>
-              </button>
-              <SettingsServerPicker />
-            </div>
+            <SettingsServerPicker />
           </div>
           <div class="flex items-center gap-2 px-3 h-9 rounded-lg bg-surface-base">
             <Icon name="magnifying-glass" class="text-icon-weak-base flex-shrink-0" />

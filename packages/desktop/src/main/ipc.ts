@@ -3,8 +3,8 @@ import { stat } from "node:fs/promises"
 import { basename, join } from "node:path"
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from "electron"
 import type { IpcMainEvent, IpcMainInvokeEvent } from "electron"
-import type { DesktopMenuAction } from "@opencode-ai/app/desktop-menu"
-import { parseDesktopNativeBundle, type DesktopNativeBundle } from "@opencode-ai/app/i18n/desktop-native"
+import type { DesktopMenuAction } from "@sutradhar/app/desktop-menu"
+import { parseDesktopNativeBundle, type DesktopNativeBundle } from "@sutradhar/app/i18n/desktop-native"
 
 import type { FatalRendererError, ServerReadyData, TitlebarTheme } from "../preload/types"
 import { runDesktopMenuAction } from "./desktop-menu-actions"
@@ -52,6 +52,11 @@ type Deps = {
   exportDebugLogs: () => Promise<string>
   recordFatalRendererError: (error: FatalRendererError) => Promise<void> | void
   setNativeTranslations: (bundle: DesktopNativeBundle) => void
+  computerUse?: {
+    status: () => Promise<unknown>
+    stop: () => Promise<void>
+    start: () => Promise<unknown>
+  }
 }
 
 export function registerIpcHandlers(deps: Deps) {
@@ -111,6 +116,9 @@ export function registerIpcHandlers(deps: Deps) {
     if (!bundle) throw new Error("Invalid native translation bundle")
     deps.setNativeTranslations(bundle)
   })
+  ipcMain.handle("computer-use-status", () => deps.computerUse?.status() ?? { ready: false })
+  ipcMain.handle("computer-use-start", () => deps.computerUse?.start())
+  ipcMain.handle("computer-use-stop", () => deps.computerUse?.stop())
   ipcMain.handle("store-get", (_event: IpcMainInvokeEvent, name: string, key: string) => {
     try {
       const store = getStore(name)

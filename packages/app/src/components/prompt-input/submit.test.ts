@@ -125,19 +125,24 @@ beforeAll(async () => {
     useSearchParams: () => [search, () => undefined],
   }))
 
-  mock.module("@opencode-ai/sdk/v2/client", () => ({
-    createOpencodeClient: (input: { directory: string }) => {
+  mock.module("@sutradhar/sdk/v2/client", () => ({
+    createSutradharClient: (input: { directory: string }) => {
       createdClients.push(input.directory)
       return clientFor(input.directory)
     },
   }))
 
-  mock.module("@opencode-ai/ui/toast", () => ({
+  mock.module("@sutradhar/ui/toast", () => ({
     Toast: { Region: () => null },
     showToast: () => 0,
+    toaster: { show: () => 0, dismiss: () => undefined },
   }))
 
-  mock.module("@opencode-ai/core/util/encode", () => ({
+  mock.module("@sutradhar/ui/context/dialog", () => ({
+    useDialog: () => ({ show: () => undefined, close: () => undefined }),
+  }))
+
+  mock.module("@sutradhar/core/util/encode", () => ({
     base64Encode: (value: string) => value,
   }))
 

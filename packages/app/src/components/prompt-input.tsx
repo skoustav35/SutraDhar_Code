@@ -1,5 +1,5 @@
-import { useFilteredList } from "@opencode-ai/ui/hooks"
-import { useSpring } from "@opencode-ai/ui/motion-spring"
+import { useFilteredList } from "@sutradhar/ui/hooks"
+import { useSpring } from "@sutradhar/ui/motion-spring"
 import {
   createEffect,
   on,
@@ -27,22 +27,24 @@ import {
 } from "@/context/prompt"
 import { useLayout } from "@/context/layout"
 import { useSDK } from "@/context/sdk"
+import { useServerSDK } from "@/context/server-sdk"
 import { useSync } from "@/context/sync"
 import { useComments } from "@/context/comments"
-import { Button } from "@opencode-ai/ui/button"
-import { DockShellForm, DockTray } from "@opencode-ai/ui/dock-surface"
-import { Icon } from "@opencode-ai/ui/icon"
-import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
-import { Tooltip, TooltipKeybind } from "@opencode-ai/ui/tooltip"
-import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
-import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
-import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
-import { KeybindV2 } from "@opencode-ai/ui/v2/keybind-v2"
-import { MenuV2 } from "@opencode-ai/ui/v2/menu-v2"
-import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
-import { IconButton } from "@opencode-ai/ui/icon-button"
-import { Select } from "@opencode-ai/ui/select"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { useSkills } from "@/context/skills"
+import { Button } from "@sutradhar/ui/button"
+import { DockShellForm, DockTray } from "@sutradhar/ui/dock-surface"
+import { Icon } from "@sutradhar/ui/icon"
+import { ProviderIcon } from "@sutradhar/ui/provider-icon"
+import { Tooltip, TooltipKeybind } from "@sutradhar/ui/tooltip"
+import { ButtonV2 } from "@sutradhar/ui/v2/button-v2"
+import { Icon as IconV2 } from "@sutradhar/ui/v2/icon"
+import { IconButtonV2 } from "@sutradhar/ui/v2/icon-button-v2"
+import { KeybindV2 } from "@sutradhar/ui/v2/keybind-v2"
+import { MenuV2 } from "@sutradhar/ui/v2/menu-v2"
+import { TooltipV2 } from "@sutradhar/ui/v2/tooltip-v2"
+import { IconButton } from "@sutradhar/ui/icon-button"
+import { Select } from "@sutradhar/ui/select"
+import { useDialog } from "@sutradhar/ui/context/dialog"
 import { ModelSelectorPopover, ModelSelectorPopoverV2 } from "@/components/dialog-select-model"
 import { DialogSelectModelUnpaid } from "@/components/dialog-select-model-unpaid"
 import { DialogSelectModelUnpaidV2 } from "@/components/dialog-select-model-unpaid-v2"
@@ -80,8 +82,8 @@ import { PromptDragOverlay } from "./prompt-input/drag-overlay"
 import { promptPlaceholder } from "./prompt-input/placeholder"
 import { createPromptInputTransientState } from "./prompt-input/transient-state"
 import { showToast } from "@/utils/toast"
-import { ImagePreview } from "@opencode-ai/ui/image-preview"
-import type { ReferenceInfo } from "@opencode-ai/sdk/v2/client"
+import { ImagePreview } from "@sutradhar/ui/image-preview"
+import type { ReferenceInfo } from "@sutradhar/sdk/v2/client"
 
 export { createPromptInputHistory }
 export type { PromptInputControls, PromptInputHistory, PromptInputProps, PromptInputState, PromptInputSubmission }
@@ -116,12 +118,15 @@ const EXAMPLES = [
 
 export const PromptInput: Component<PromptInputProps> = (props) => {
   const sdk = useSDK()
+  const serverSDK = useServerSDK()
+  const syncModels = () => serverSDK().client.global.dispose().then(() => undefined)
 
   const sync = useSync()
   const files = useFile()
   const prompt = props.state ?? usePrompt()
   const layout = useLayout()
   const comments = useComments()
+  const skills = useSkills()
   const dialog = useDialog()
   const command = useCommand()
   const permission = usePermission()
@@ -712,7 +717,20 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       // source: cmd.source,
     }))
 
-    return [...custom, ...builtin]
+    const taken = new Set([...builtin.map((entry) => entry.trigger), ...custom.map((entry) => entry.trigger)])
+    const marketplace = skills
+      .installed()
+      .filter((skill) => !taken.has(skill.slash))
+      .map((skill) => ({
+        id: `skills.${skill.id}`,
+        trigger: skill.slash,
+        title: skill.name,
+        description: skill.tagline,
+        type: "custom" as const,
+        source: "skill" as const,
+      }))
+
+    return [...marketplace, ...custom, ...builtin]
   })
 
   const handleSlashSelect = (cmd: SlashCommand | undefined) => {
@@ -720,6 +738,23 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     const menu = store.slashMenu
     closePopover()
     const images = imageAttachments()
+
+    if (cmd.id.startsWith("skills.")) {
+      const skill = skills.installed().find((entry) => `skills.${entry.id}` === cmd.id)
+      if (!skill) return
+      const text = skills.prompt(skill)
+      if (menu) {
+        editorRef.focus()
+        setCursorPosition(editorRef, 0)
+        addPart({ type: "text", content: text, start: 0, end: text.length })
+        focusEditorEnd()
+        return
+      }
+      setEditorText(text)
+      prompt.set([{ type: "text", content: text, start: 0, end: text.length }, ...images], text.length)
+      focusEditorEnd()
+      return
+    }
 
     if (cmd.type === "custom") {
       const text = `/${cmd.trigger} `
@@ -1697,7 +1732,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                               class="min-w-0 max-w-[320px] text-13-regular text-text-base group"
                               style={control()}
                               onClick={() => {
-                                dialog.show(() => <DialogSelectModelUnpaid model={props.controls.model.selection} />)
+                                dialog.show(() => (
+                                  <DialogSelectModelUnpaid model={props.controls.model.selection} onSync={syncModels} />
+                                ))
                               }}
                             >
                               <Show when={props.controls.model.selection.current()?.provider?.id}>
@@ -1724,6 +1761,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                         >
                           <ModelSelectorPopover
                             model={props.controls.model.selection}
+                            onSync={syncModels}
                             trigger={(triggerProps) => (
                               <Button
                                 {...triggerProps}

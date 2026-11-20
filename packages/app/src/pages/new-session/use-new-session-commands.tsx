@@ -1,4 +1,4 @@
-import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { useDialog } from "@sutradhar/ui/context/dialog"
 import { useSettingsCommand } from "@/components/settings-dialog"
 import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
@@ -15,7 +15,7 @@ export function useNewSessionCommands(input: {
   const language = useLanguage()
 
   useSettingsCommand()
-  command.register("new-session", () => [
+  command.register("command.palette", () => [
     {
       id: "command.palette",
       title: language.t("command.palette"),
@@ -25,6 +25,8 @@ export function useNewSessionCommands(input: {
         void dialog.show(() => <DialogSelectFile />)
       },
     },
+  ])
+  command.register("new-session", () => [
     {
       id: "input.focus",
       title: language.t("command.input.focus"),

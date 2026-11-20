@@ -77,6 +77,7 @@ export const Model = Schema.Struct({
       ),
     ).annotate({ description: "Variant-specific configuration" }),
   ),
+  instructions: Schema.optional(Schema.String),
 })
 
 export const Info = Schema.Struct({

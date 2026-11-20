@@ -65,3 +65,82 @@
     text-rendering: optimizeLegibility;
   }
 }
+
+/*
+ * macOS-Level Settings Dialog Pop-up Polish
+ * Deep 28px squircle curved vertices, airy frosted backdrop, specular borders, and refined tabs
+ */
+[data-component="dialog-overlay"] {
+  backdrop-filter: blur(10px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(140%) !important;
+  background-color: rgba(15, 23, 42, 0.28) !important;
+}
+
+[data-slot="dialog-content"].sutradhar-settings-dialog {
+  border-radius: 28px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(186, 230, 253, 0.55) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+  box-shadow:
+    0 28px 72px -16px rgba(2, 132, 199, 0.18),
+    0 36px 92px -20px rgba(15, 23, 42, 0.24),
+    0 0 0 1px rgba(255, 255, 255, 0.75) inset !important;
+}
+
+[data-theme="dark"] [data-slot="dialog-content"].sutradhar-settings-dialog,
+.dark [data-slot="dialog-content"].sutradhar-settings-dialog {
+  border: 1px solid rgba(56, 189, 248, 0.25) !important;
+  background: rgba(15, 23, 42, 0.93) !important;
+  box-shadow:
+    0 28px 72px -16px rgba(0, 0, 0, 0.55),
+    0 36px 92px -20px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset !important;
+}
+
+[data-slot="dialog-content"].sutradhar-settings-dialog [data-slot="dialog-body"],
+[data-slot="dialog-content"].sutradhar-settings-dialog .settings-dialog {
+  border-radius: 28px !important;
+  overflow: hidden !important;
+}
+
+[data-slot="dialog-content"].sutradhar-settings-dialog [data-slot="tabs-list"] {
+  border-top-left-radius: 28px !important;
+  border-bottom-left-radius: 28px !important;
+  background: linear-gradient(180deg, rgba(240, 249, 255, 0.95) 0%, rgba(224, 242, 254, 0.75) 100%) !important;
+  border-inline-end: 1px solid rgba(186, 230, 253, 0.55) !important;
+  padding: 18px 14px !important;
+}
+
+[data-theme="dark"] [data-slot="dialog-content"].sutradhar-settings-dialog [data-slot="tabs-list"],
+.dark [data-slot="dialog-content"].sutradhar-settings-dialog [data-slot="tabs-list"] {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.85) 100%) !important;
+  border-inline-end: 1px solid rgba(51, 65, 85, 0.6) !important;
+}
+
+[data-slot="dialog-content"].sutradhar-settings-dialog [data-slot="tabs-trigger-wrapper"] {
+  border-radius: 12px !important;
+  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  margin-bottom: 3px !important;
+}
+
+[data-slot="dialog-content"].sutradhar-settings-dialog [data-slot="tabs-trigger-wrapper"]:hover:not(:disabled) {
+  background-color: rgba(224, 242, 254, 0.7) !important;
+}
+
+[data-theme="dark"] [data-slot="dialog-content"].sutradhar-settings-dialog [data-slot="tabs-trigger-wrapper"]:hover:not(:disabled),
+.dark [data-slot="dialog-content"].sutradhar-settings-dialog [data-slot="tabs-trigger-wrapper"]:hover:not(:disabled) {
+  background-color: rgba(51, 65, 85, 0.5) !important;
+}
+
+[data-slot="dialog-content"].sutradhar-settings-dialog [data-slot="tabs-trigger-wrapper"]:has([data-selected]) {
+  background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px -2px rgba(2, 132, 199, 0.35) !important;
+}
+
+[data-slot="dialog-content"].sutradhar-settings-dialog [data-slot="tabs-trigger-wrapper"]:has([data-selected]) [data-component="icon"] {
+  color: #ffffff !important;
+}
+

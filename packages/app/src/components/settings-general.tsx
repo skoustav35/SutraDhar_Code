@@ -1,13 +1,12 @@
 import { Component, Show, createMemo, createResource, onMount, type JSX } from "solid-js"
-import { Button } from "@opencode-ai/ui/button"
-import { Icon } from "@opencode-ai/ui/icon"
-import { Select } from "@opencode-ai/ui/select"
-import { Switch } from "@opencode-ai/ui/switch"
-import { TextField } from "@opencode-ai/ui/text-field"
-import { Tooltip } from "@opencode-ai/ui/tooltip"
-import { Tag } from "@opencode-ai/ui/v2/badge-v2"
-import { useTheme, type ColorScheme } from "@opencode-ai/ui/theme/context"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { Button } from "@sutradhar/ui/button"
+import { Icon } from "@sutradhar/ui/icon"
+import { Select } from "@sutradhar/ui/select"
+import { Switch } from "@sutradhar/ui/switch"
+import { TextField } from "@sutradhar/ui/text-field"
+import { Tooltip } from "@sutradhar/ui/tooltip"
+import { Tag } from "@sutradhar/ui/v2/badge-v2"
+import { useTheme, type ColorScheme } from "@sutradhar/ui/theme/context"
 import { useParams } from "@solidjs/router"
 import { useLanguage } from "@/context/language"
 import { usePermission } from "@/context/permission"
@@ -87,7 +86,6 @@ export const SettingsGeneral: Component = () => {
   const language = useLanguage()
   const permission = usePermission()
   const platform = usePlatform()
-  const dialog = useDialog()
   const params = useParams()
   const settings = useSettings()
 
@@ -269,10 +267,6 @@ export const SettingsGeneral: Component = () => {
               checked={settings.general.newLayoutDesigns()}
               onChange={(checked) => {
                 settings.general.setNewLayoutDesigns(checked)
-                if (!checked) return
-                void import("@/components/settings-v2").then((module) => {
-                  void dialog.show(() => <module.DialogSettings />)
-                })
               }}
             />
           </div>
@@ -482,7 +476,7 @@ export const SettingsGeneral: Component = () => {
           description={
             <>
               {language.t("settings.general.row.theme.description")}{" "}
-              <ExternalLink href="https://opencode.ai/docs/themes/">{language.t("common.learnMore")}</ExternalLink>
+              <ExternalLink href="https://sutradhar.ai/docs/themes/">{language.t("common.learnMore")}</ExternalLink>
             </>
           }
         >

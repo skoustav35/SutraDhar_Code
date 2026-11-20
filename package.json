@@ -1,5 +1,5 @@
 {
-  "name": "opencode-monorepo",
+  "name": "sutradhar-monorepo",
   "private": true,
   "workspaces": [
     "packages/*"

@@ -1,10 +1,10 @@
 import { describe, expect } from "bun:test"
 import { Effect, Exit, Scope } from "effect"
-import { AgentV2 } from "@opencode-ai/core/agent"
-import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
-import { Location } from "@opencode-ai/core/location"
-import { AgentPlugin } from "@opencode-ai/core/plugin/agent"
-import { AbsolutePath } from "@opencode-ai/core/schema"
+import { AgentV2 } from "@sutradhar/core/agent"
+import { AppNodeBuilder } from "@sutradhar/core/effect/app-node-builder"
+import { Location } from "@sutradhar/core/location"
+import { AgentPlugin } from "@sutradhar/core/plugin/agent"
+import { AbsolutePath } from "@sutradhar/core/schema"
 import { location } from "./fixture/location"
 import { testEffect } from "./lib/effect"
 import { agentHost, host } from "./plugin/host"
@@ -115,17 +115,47 @@ describe("AgentV2", () => {
 
       const agents = yield* agent.all()
       expect(agents.map((item) => String(item.id)).sort()).toEqual([
+        "browser",
         "build",
+        "chat",
+        "code",
         "compaction",
+        "computer",
+        "debug",
+        "desktop",
+        "docs",
         "explore",
         "general",
         "plan",
+        "release",
+        "review",
+        "security",
         "summary",
+        "test",
         "title",
+        "verify",
       ])
-      for (const item of agents) {
+      for (const item of agents.filter((item) =>
+        ["build", "chat", "compaction", "explore", "general", "plan", "summary", "title"].includes(String(item.id)),
+      )) {
         expect(item.permissions.some((rule) => rule.action === "bash" && rule.effect !== "deny")).toBe(false)
       }
+
+      const chat = agents.find((item) => String(item.id) === "chat")
+      expect(chat?.mode).toBe("primary")
+      expect(chat?.permissions.at(-1)).toMatchObject({ action: "*", resource: "*", effect: "deny" })
+
+      const code = agents.find((item) => String(item.id) === "code")
+      const verify = agents.find((item) => String(item.id) === "verify")
+      const computer = agents.find((item) => String(item.id) === "computer")
+      const browser = agents.find((item) => String(item.id) === "browser")
+      const desktop = agents.find((item) => String(item.id) === "desktop")
+      expect(code?.permissions.some((rule) => rule.action === "*" && rule.effect === "allow")).toBe(true)
+      expect(verify?.permissions.some((rule) => rule.action === "*" && rule.effect === "deny")).toBe(true)
+      expect(computer?.permissions.some((rule) => rule.action === "computer_*" && rule.effect === "ask")).toBe(true)
+      expect(computer?.permissions.some((rule) => rule.action === "bash" && rule.effect !== "deny")).toBe(false)
+      expect(browser?.permissions.some((rule) => rule.action === "browser_*" && rule.effect === "ask")).toBe(true)
+      expect(desktop?.permissions.some((rule) => rule.action === "desktop_*" && rule.effect === "ask")).toBe(true)
     }),
   )
 })

@@ -7,6 +7,7 @@ type InputMap = Record<InputKey, boolean>
 type ModelInfo = {
   id: string
   name: string
+  description?: string
   provider: {
     name: string
   }
@@ -45,7 +46,7 @@ export const ModelTooltip: Component<{ model: ModelInfo; latest?: boolean; free?
     if (/grok|xai/.test(value)) return language.t("model.provider.xai")
     if (/llama|meta/.test(value)) return language.t("model.provider.meta")
 
-    return model.provider.name
+    return model.provider?.name ?? ""
   }
   const inputLabel = (value: string) => {
     if (value === "text") return language.t("model.input.text")
@@ -70,10 +71,12 @@ export const ModelTooltip: Component<{ model: ModelInfo; latest?: boolean; free?
     return `${props.model.name}${suffix}`
   }
   const inputs = () => {
-    if (props.model.capabilities) {
+    if (props.model.capabilities?.input) {
       const input = props.model.capabilities.input
       const order: Array<InputKey> = ["text", "image", "audio", "video", "pdf"]
-      const entries = order.filter((key) => input[key]).map((key) => inputLabel(key))
+      const entries = Array.isArray(input)
+        ? order.filter((key) => input.includes(key)).map((key) => inputLabel(key))
+        : order.filter((key) => input[key]).map((key) => inputLabel(key))
       return entries.length ? entries.join(", ") : undefined
     }
     const raw = props.model.modalities?.input
@@ -82,7 +85,7 @@ export const ModelTooltip: Component<{ model: ModelInfo; latest?: boolean; free?
     return entries.length ? entries.join(", ") : undefined
   }
   const reasoning = () => {
-    if (props.model.capabilities)
+    if (props.model.capabilities?.reasoning !== undefined)
       return props.model.capabilities.reasoning
         ? language.t("model.tooltip.reasoning.allowed")
         : language.t("model.tooltip.reasoning.none")
@@ -90,14 +93,20 @@ export const ModelTooltip: Component<{ model: ModelInfo; latest?: boolean; free?
       ? language.t("model.tooltip.reasoning.allowed")
       : language.t("model.tooltip.reasoning.none")
   }
-  const context = () => language.t("model.tooltip.context", { limit: props.model.limit.context.toLocaleString() })
-  const contextLimit = () => props.model.limit.context.toLocaleString(language.intl())
+  const context = () =>
+    props.model.limit?.context != null
+      ? language.t("model.tooltip.context", { limit: props.model.limit.context.toLocaleString() })
+      : ""
+  const contextLimit = () => props.model.limit?.context?.toLocaleString(language.intl()) ?? "-"
 
   if (props.v2) {
     return (
       <div class="flex w-[180px] flex-col gap-2">
         <ModelTooltipRow name={language.t("model.tooltip.model")} value={name()} />
-        <ModelTooltipRow name={language.t("model.tooltip.provider")} value={props.model.provider.name} />
+        <Show when={props.model.description}>
+          {(value) => <ModelTooltipRow name={language.t("model.tooltip.details")} value={value()} />}
+        </Show>
+        <ModelTooltipRow name={language.t("model.tooltip.provider")} value={props.model.provider?.name ?? ""} />
         <Show when={inputs()}>
           {(value) => <ModelTooltipRow name={language.t("model.tooltip.inputs")} value={value()} />}
         </Show>
@@ -110,6 +119,9 @@ export const ModelTooltip: Component<{ model: ModelInfo; latest?: boolean; free?
   return (
     <div class="flex flex-col gap-1 py-1">
       <div class="text-13-medium">{title()}</div>
+      <Show when={props.model.description}>
+        {(value) => <div class="text-12-regular text-text-invert-base">{value()}</div>}
+      </Show>
       <Show when={inputs()}>
         {(value) => (
           <div class="text-12-regular text-text-invert-base">

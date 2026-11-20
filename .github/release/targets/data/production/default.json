@@ -1,0 +1,39 @@
+{
+  "name": "sutradhar-data-production",
+  "compatibilityDate": "2026-07-25",
+  "compatibilityFlags": ["nodejs_compat"],
+  "triggers": [
+    { "type": "fetch", "pattern": "sutradhar.ai/data*", "zone": "sutradhar.ai" },
+    { "type": "fetch", "pattern": "sutradhar.ai/en/data*", "zone": "sutradhar.ai" },
+    { "type": "fetch", "pattern": "sutradhar.ai/zh/data*", "zone": "sutradhar.ai" },
+    { "type": "fetch", "pattern": "sutradhar.ai/zht/data*", "zone": "sutradhar.ai" },
+    { "type": "fetch", "pattern": "sutradhar.ai/ko/data*", "zone": "sutradhar.ai" },
+    { "type": "fetch", "pattern": "sutradhar.ai/de/data*", "zone": "sutradhar.ai" },
+    { "type": "fetch", "pattern": "sutradhar.ai/es/data*", "zone": "sutradhar.ai" },
+    { "type": "fetch", "pattern": "sutradhar.ai/fr/data*", "zone": "sutradhar.ai" },
+    { "type": "fetch", "pattern": "sutradhar.ai/it/data*", "zone": "sutradhar.ai" },
+    { "type": "fetch", "pattern": "sutradhar.ai/da/data*", "zone": "sutradhar.ai" },
+    { "type": "fetch", "pattern": "sutradhar.ai/ja/data*", "zone": "sutradhar.ai" },
+    { "type": "fetch", "pattern": "sutradhar.ai/pl/data*", "zone": "sutradhar.ai" },
+    { "type": "fetch", "pattern": "sutradhar.ai/ru/data*", "zone": "sutradhar.ai" },
+    { "type": "fetch", "pattern": "sutradhar.ai/uk/data*", "zone": "sutradhar.ai" },
+    { "type": "fetch", "pattern": "sutradhar.ai/ar/data*", "zone": "sutradhar.ai" },
+    { "type": "fetch", "pattern": "sutradhar.ai/no/data*", "zone": "sutradhar.ai" },
+    { "type": "fetch", "pattern": "sutradhar.ai/br/data*", "zone": "sutradhar.ai" },
+    { "type": "fetch", "pattern": "sutradhar.ai/th/data*", "zone": "sutradhar.ai" },
+    { "type": "fetch", "pattern": "sutradhar.ai/tr/data*", "zone": "sutradhar.ai" }
+  ],
+  "observability": { "enabled": true },
+  "workersDev": false,
+  "previewUrls": false,
+  "env": {
+    "ASSETS": { "type": "assets" },
+    "OG_WORKER": { "type": "worker", "worker": "sutradhar-data-og-production" },
+    "STAGE": { "type": "text", "value": "production" },
+    "PUBLIC_URL": { "type": "text", "value": "https://sutradhar.ai/data" },
+    "DATA_DATABASE_HOST": { "type": "secret" },
+    "DATA_DATABASE_USERNAME": { "type": "secret" },
+    "DATA_DATABASE_PASSWORD": { "type": "secret" }
+  },
+  "manifest": { "type": "partial", "mainModule": "index.mjs", "modules": {} }
+}

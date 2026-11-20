@@ -1,7 +1,7 @@
-import type { Message, Session } from "@opencode-ai/sdk/v2/client"
+import type { Message, Session } from "@sutradhar/sdk/v2/client"
 import { showToast } from "@/utils/toast"
-import { base64Encode } from "@opencode-ai/core/util/encode"
-import { Binary } from "@opencode-ai/core/util/binary"
+import { base64Encode } from "@sutradhar/core/util/encode"
+import { Binary } from "@sutradhar/core/util/binary"
 import { useNavigate, useParams, useSearchParams } from "@solidjs/router"
 import { batch, startTransition, type Accessor } from "solid-js"
 import { useTabs } from "@/context/tabs"
@@ -21,7 +21,7 @@ import { formatServerError } from "@/utils/server-errors"
 import { ScopedKey } from "@/utils/server-scope"
 import { createPromptSubmissionState } from "./submission-state"
 import { normalizeSessionInfo } from "@/utils/session"
-import { Event } from "@opencode-ai/schema/event"
+import { Event } from "@sutradhar/schema/event"
 import { blobDataUrl } from "@/utils/draft-store"
 
 type PendingPrompt = {
@@ -324,11 +324,12 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       prompt: target.current(),
       context: target.context.items().slice(),
     })
+    const isChatMode = layout.appMode.isChat()
     const currentPrompt = submission.prompt
-    const context = submission.context
+    const context = isChatMode ? submission.context.filter((item) => item.type !== "file") : submission.context
     const text = currentPrompt.map((part) => ("content" in part ? part.content : "")).join("")
     const images = input.imageAttachments().slice()
-    const mode = input.mode()
+    const mode = isChatMode ? "normal" : input.mode()
 
     if (text.trim().length === 0 && images.length === 0 && input.commentCount() === 0) {
       if (input.working()) void abort()
@@ -337,7 +338,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
 
     const modelSelection = input.model ?? local.model
     const currentModel = modelSelection.current()
-    const currentAgent = local.agent.current()
+    const currentAgent = isChatMode ? { name: "chat" } : local.agent.current()
     const variant = modelSelection.variant.current()
     if (!currentModel || !currentAgent) {
       showToast({
@@ -353,8 +354,8 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     const projectDirectory = sdk().directory
     const permissionState = permission.currentServerState()
     const isNewSession = !params.id
-    const shouldAutoAccept = isNewSession && input.autoAccept()
-    const worktreeSelection = input.newSessionWorktree?.() || "main"
+    const shouldAutoAccept = isNewSession && !isChatMode && input.autoAccept()
+    const worktreeSelection = isChatMode ? "main" : input.newSessionWorktree?.() || "main"
 
     let sessionDirectory = projectDirectory
     let client = sdk().client

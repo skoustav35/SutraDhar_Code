@@ -1,14 +1,16 @@
 import { batch, createEffect, createMemo, onCleanup } from "solid-js"
 import { createStore, produce, reconcile } from "solid-js/store"
-import { createSimpleContext } from "@opencode-ai/ui/context"
+import { createSimpleContext } from "@sutradhar/ui/context"
 import { showToast } from "@/utils/toast"
 import { useParams } from "@solidjs/router"
-import { base64Encode } from "@opencode-ai/core/util/encode"
-import { getFilename } from "@opencode-ai/core/util/path"
+import { base64Encode } from "@sutradhar/core/util/encode"
+import { getFilename } from "@sutradhar/core/util/path"
 import { useSDK } from "./sdk"
 import { useSync } from "./sync"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
+import { usePlatform } from "@/context/platform"
+import { authTokenFromCredentials } from "@/utils/server"
 import { createPathHelpers } from "./file/path"
 import {
   approxBytes,
@@ -62,6 +64,7 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
     const serverSDK = useServerSDK()
     const language = useLanguage()
     const layout = useLayout()
+    const platform = usePlatform()
 
     const scope = createMemo(() => sdk().directory)
     const path = createPathHelpers(scope)
@@ -262,6 +265,52 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
     const setSelectedLines = (input: string, range: SelectedLineRange | null) =>
       withPath(input, (file) => view().setSelectedLines(file, range))
 
+    const requestExperimentalFile = async (pathname: string, init: RequestInit) => {
+      const http = serverSDK().server.http
+      const headers = new Headers(init.headers)
+      if (http.password) {
+        headers.set("Authorization", `Basic ${authTokenFromCredentials({ username: http.username, password: http.password })}`)
+      }
+      const fetcher = platform.fetch ?? globalThis.fetch
+      return fetcher(new URL(pathname, http.url), {
+        ...init,
+        headers,
+      })
+    }
+
+    const readRaw = async (input: string) => {
+      const normalized = path.normalize(input)
+      if (!normalized) return ""
+      const params = new URLSearchParams({
+        directory: scope(),
+        path: normalized,
+      })
+      const response = await requestExperimentalFile(`/experimental/file/raw?${params.toString()}`, {
+        method: "GET",
+      })
+      if (!response.ok) {
+        throw new Error(`Failed to read file (${response.status})`)
+      }
+      const data = (await response.json()) as { content?: string }
+      return data.content ?? ""
+    }
+
+    const save = async (input: string, content: string) => {
+      const normalized = path.normalize(input)
+      if (!normalized) return
+      const params = new URLSearchParams({ directory: scope() })
+      const response = await requestExperimentalFile(`/experimental/file/write?${params.toString()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: normalized, content }),
+      })
+      if (!response.ok) {
+        throw new Error(`Failed to save file (${response.status})`)
+      }
+      setLoaded(normalized, { type: "text", content })
+      touchFileContent(normalized, approxBytes({ type: "text", content }))
+    }
+
     onCleanup(() => {
       stop()
       viewCache.clear()
@@ -289,6 +338,8 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
       },
       get,
       load,
+      readRaw,
+      save,
       scrollTop,
       scrollLeft,
       setScrollTop,

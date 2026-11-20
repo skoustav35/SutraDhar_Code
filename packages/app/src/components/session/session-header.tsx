@@ -1,13 +1,13 @@
-import { AppIcon } from "@opencode-ai/ui/app-icon"
-import { Button } from "@opencode-ai/ui/button"
-import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
-import { Icon } from "@opencode-ai/ui/icon"
-import { IconButton } from "@opencode-ai/ui/icon-button"
-import { Keybind } from "@opencode-ai/ui/keybind"
-import { Spinner } from "@opencode-ai/ui/spinner"
+import { AppIcon } from "@sutradhar/ui/app-icon"
+import { Button } from "@sutradhar/ui/button"
+import { DropdownMenu } from "@sutradhar/ui/dropdown-menu"
+import { Icon } from "@sutradhar/ui/icon"
+import { IconButton } from "@sutradhar/ui/icon-button"
+import { Keybind } from "@sutradhar/ui/keybind"
+import { Spinner } from "@sutradhar/ui/spinner"
 import { showToast } from "@/utils/toast"
-import { Tooltip, TooltipKeybind } from "@opencode-ai/ui/tooltip"
-import { getFilename } from "@opencode-ai/core/util/path"
+import { Tooltip, TooltipKeybind } from "@sutradhar/ui/tooltip"
+import { getFilename } from "@sutradhar/core/util/path"
 import { createEffect, createMemo, createSignal, For, onMount, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createMediaQuery } from "@solid-primitives/media"
@@ -27,10 +27,10 @@ import { decode64 } from "@/utils/base64"
 import { fileManagerApp } from "@/utils/file-manager"
 import { Persist, persisted } from "@/utils/persist"
 import { StatusPopover, StatusPopoverV2 } from "../status-popover"
-import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
-import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
-import { KeybindV2 } from "@opencode-ai/ui/v2/keybind-v2"
-import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
+import { IconButtonV2 } from "@sutradhar/ui/v2/icon-button-v2"
+import { Icon as IconV2 } from "@sutradhar/ui/v2/icon"
+import { KeybindV2 } from "@sutradhar/ui/v2/keybind-v2"
+import { TooltipV2 } from "@sutradhar/ui/v2/tooltip-v2"
 import { reviewTooltipKeybind } from "../command-tooltip-keybind"
 import { useTitlebarRightMount } from "../titlebar"
 
@@ -137,7 +137,7 @@ const showRequestError = (language: ReturnType<typeof useLanguage>, err: unknown
   })
 }
 
-export function SessionHeader() {
+export function SessionHeader(props?: { reviewCount?: () => number }) {
   const layout = useLayout()
   const command = useCommand()
   const server = useServer()
@@ -235,12 +235,13 @@ export function SessionHeader() {
     messageAgentColor(params.id ? sync().data.message[params.id] : undefined, sync().data.agent),
   )
   const v2ActionsState = createMemo<SessionHeaderV2ActionsState>(() => ({
-    statusVisible: status(),
+    statusVisible: status() && !layout.appMode.isChat(),
     statusLabel: language.t("status.popover.trigger"),
     reviewLabel: language.t("command.review.toggle"),
     reviewKeybind: reviewTooltipKeybind(command),
-    reviewVisible: isDesktop(),
+    reviewVisible: isDesktop() && !layout.appMode.isChat() && !layout.appMode.isIde(),
     reviewOpened: view().reviewPanel.opened(),
+    reviewCount: props?.reviewCount ? props.reviewCount() : 0,
     onReviewToggle: () => view().reviewPanel.toggle(),
   }))
 
@@ -284,7 +285,7 @@ export function SessionHeader() {
   const [centerMount, setCenterMount] = createSignal<HTMLElement | null>(null)
   const rightMount = useTitlebarRightMount()
   onMount(() => {
-    setCenterMount(document.getElementById("opencode-titlebar-center"))
+    setCenterMount(document.getElementById("sutradhar-titlebar-center"))
   })
 
   return (
@@ -326,7 +327,7 @@ export function SessionHeader() {
               when={isV2}
               fallback={
                 <div class="flex items-center gap-2">
-                  <Show when={projectDirectory()}>
+                  <Show when={projectDirectory() && !layout.appMode.isChat()}>
                     <div class="hidden xl:flex items-center">
                       <Show
                         when={canOpen()}
@@ -523,6 +524,7 @@ type SessionHeaderV2ActionsState = {
   reviewKeybind: string[]
   reviewVisible: boolean
   reviewOpened: boolean
+  reviewCount?: number
   onReviewToggle: () => void
 }
 
@@ -541,26 +543,50 @@ function SessionHeaderV2Actions(props: { state: SessionHeaderV2ActionsState }) {
           class="shrink-0"
           placement="bottom"
           value={
-            <>
-              {props.state.reviewLabel}
-              <Show when={props.state.reviewKeybind.length > 0}>
-                <KeybindV2 keys={props.state.reviewKeybind} variant="neutral" />
+            <div class="flex flex-col items-center gap-0.5 py-0.5">
+              <div class="flex items-center gap-1.5 font-medium">
+                <span>{props.state.reviewOpened ? (language.t("command.review.toggle") || "Close right sidebar") : "Open right sidebar"}</span>
+                <Show when={props.state.reviewKeybind.length > 0}>
+                  <KeybindV2 keys={props.state.reviewKeybind} variant="neutral" />
+                </Show>
+              </div>
+              <Show when={(props.state.reviewCount ?? 0) > 0}>
+                <span class="text-[11px] text-text-weaker font-normal">
+                  {language.t("session.review.filesChanged", { count: props.state.reviewCount ?? 0 })}
+                </span>
               </Show>
-            </>
+            </div>
           }
         >
-          <IconButtonV2
-            type="button"
-            variant="ghost-muted"
-            size="large"
-            class="!w-9 shrink-0"
-            state={props.state.reviewOpened ? "pressed" : undefined}
-            onClick={props.state.onReviewToggle}
-            aria-label={props.state.reviewLabel}
-            aria-expanded={props.state.reviewOpened}
-            aria-controls="review-panel"
-            icon={<IconV2 name="sidebar-right" />}
-          />
+          <div class="relative shrink-0 flex items-center">
+            <IconButtonV2
+              type="button"
+              variant={props.state.reviewOpened ? "neutral" : "ghost-muted"}
+              size="large"
+              class="!w-9 shrink-0 transition-all duration-200 active:scale-95"
+              classList={{
+                "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-light ring-1 ring-primary/30 shadow-xs":
+                  props.state.reviewOpened,
+              }}
+              state={props.state.reviewOpened ? "pressed" : undefined}
+              onClick={props.state.onReviewToggle}
+              aria-label={props.state.reviewLabel}
+              aria-expanded={props.state.reviewOpened}
+              aria-controls="review-panel"
+              icon={
+                <IconV2
+                  name="sidebar-right"
+                  class="transition-transform duration-200"
+                  classList={{ "scale-105": props.state.reviewOpened }}
+                />
+              }
+            />
+            <Show when={(props.state.reviewCount ?? 0) > 0}>
+              <span class="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-accent text-[10px] font-bold text-white flex items-center justify-center pointer-events-none shadow-xs animate-scale-in">
+                {props.state.reviewCount}
+              </span>
+            </Show>
+          </div>
         </TooltipV2>
       </Show>
     </div>

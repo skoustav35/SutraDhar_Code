@@ -1,5 +1,5 @@
 import { define } from "./internal"
-import type { ModelV2Info } from "@opencode-ai/sdk/v2/types"
+import type { ModelV2Info } from "@sutradhar/sdk/v2/types"
 import { Effect, Stream } from "effect"
 import { EventV2 } from "../event"
 import { ModelsDev } from "../models-dev"
@@ -84,15 +84,17 @@ function applyModel(
 ) {
   draft.name = input.name ?? model.name
   draft.family = model.family
+  const curated = model as ModelsDev.Model & { bgModelId?: string; upstreamId?: string }
+  const apiId = curated.bgModelId?.trim() || curated.upstreamId?.trim() || model.id
   draft.api = model.provider?.npm
     ? {
-        id: model.id,
+        id: apiId,
         type: "aisdk",
         package: model.provider.npm,
         url: model.provider.api,
       }
     : {
-        id: model.id,
+        id: apiId,
         type: "native",
         url: model.provider?.api,
         settings: {},
@@ -159,17 +161,25 @@ export const ModelsDevPlugin = define({
                 }
           })
 
-          for (const model of Object.values(item.models)) {
+          for (const [modelKey, model] of Object.entries(item.models)) {
             const baseCost = cost(model.cost)
-            catalog.model.update(providerID, model.id, (draft) => applyModel(draft, model, { cost: baseCost }))
+            catalog.model.update(providerID, modelKey, (draft) => {
+              applyModel(draft, model, { cost: baseCost })
+              if ((model as any).instructions) {
+                draft.request.body.instructions = (model as any).instructions
+              }
+            })
             for (const [mode, options] of Object.entries(model.experimental?.modes ?? {})) {
-              catalog.model.update(providerID, `${model.id}-${mode}`, (draft) =>
+              catalog.model.update(providerID, `${modelKey}-${mode}`, (draft) => {
                 applyModel(draft, model, {
                   name: modeName(model, mode),
                   cost: mergeCost(baseCost, options.cost),
                   request: options.provider,
-                }),
-              )
+                })
+                if ((model as any).instructions) {
+                  draft.request.body.instructions = (model as any).instructions
+                }
+              })
             }
           }
         }

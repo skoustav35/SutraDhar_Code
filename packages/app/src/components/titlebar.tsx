@@ -12,16 +12,17 @@ import {
 } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useLocation, useNavigate, useParams } from "@solidjs/router"
-import { IconButton } from "@opencode-ai/ui/icon-button"
-import { Icon } from "@opencode-ai/ui/icon"
-import { Button } from "@opencode-ai/ui/button"
-import { Tooltip, TooltipKeybind } from "@opencode-ai/ui/tooltip"
-import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
-import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
-import { KeybindV2 } from "@opencode-ai/ui/v2/keybind-v2"
-import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
+import { IconButton } from "@sutradhar/ui/icon-button"
+import { Icon } from "@sutradhar/ui/icon"
+import { Button } from "@sutradhar/ui/button"
+import { Tooltip, TooltipKeybind } from "@sutradhar/ui/tooltip"
+import { IconButtonV2 } from "@sutradhar/ui/v2/icon-button-v2"
+import { Icon as IconV2 } from "@sutradhar/ui/v2/icon"
+import { KeybindV2 } from "@sutradhar/ui/v2/keybind-v2"
+import { TooltipV2 } from "@sutradhar/ui/v2/tooltip-v2"
 
-import { LayoutRoute, useLayout } from "@/context/layout"
+import { type AppMode, LayoutRoute, useLayout } from "@/context/layout"
+import { base64Encode } from "@sutradhar/core/util/encode"
 import { usePlatform } from "@/context/platform"
 import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
@@ -34,6 +35,7 @@ import { createMediaQuery } from "@solid-primitives/media"
 import { readSessionTabsRemovedDetail, SESSION_TABS_REMOVED_EVENT } from "@/components/titlebar-session-events"
 import { useGlobal } from "@/context/global"
 import { ServerConnection, useServer } from "@/context/server"
+import { useServerSync } from "@/context/server-sync"
 import { tabKey, useTabs } from "@/context/tabs"
 import type { PromptSession } from "@/context/prompt"
 import "./titlebar.css"
@@ -56,7 +58,7 @@ export type TitlebarUpdate = {
 export function useTitlebarRightMount() {
   const language = useLanguage()
   const [mount, setMount] = createSignal<HTMLElement | null>(null)
-  const sync = () => setMount(document.getElementById("opencode-titlebar-right"))
+  const sync = () => setMount(document.getElementById("sutradhar-titlebar-right"))
   onMount(sync)
   createEffect(on(language.direction, sync, { defer: true }))
   return mount
@@ -369,7 +371,6 @@ export function Titlebar(props: { update?: TitlebarUpdate; debugTools?: { visibl
                   "md:pl-4": !macTrafficLights(),
                 }}
               >
-                <ChannelIndicator debugTools={props.debugTools} />
                 <Show when={windows() || linux()}>
                   <WindowsAppMenu command={command} platform={platform} variant="v2" />
                 </Show>
@@ -560,16 +561,15 @@ export function Titlebar(props: { update?: TitlebarUpdate; debugTools?: { visibl
                         </Tooltip>
                       </div>
                     </Show>
-                    <div id="opencode-titlebar-left" class="flex items-center gap-3 min-w-0 px-2" />
+                    <div id="sutradhar-titlebar-left" class="flex items-center gap-3 min-w-0 px-2" />
                   </div>
                 </div>
-                <ChannelIndicator debugTools={props.debugTools} />
               </div>
             </div>
 
             <div class="min-w-0 flex items-center justify-center pointer-events-none">
               <div
-                id="opencode-titlebar-center"
+                id="sutradhar-titlebar-center"
                 class="pointer-events-auto min-w-0 flex justify-center w-fit max-w-full"
               />
             </div>
@@ -581,7 +581,8 @@ export function Titlebar(props: { update?: TitlebarUpdate; debugTools?: { visibl
               }}
               data-tauri-drag-region
             >
-              <div id="opencode-titlebar-right" class="flex items-center gap-1 shrink-0 justify-end" />
+              <SutradharModeSwitcher />
+              <div id="sutradhar-titlebar-right" class="flex items-center gap-1 shrink-0 justify-end" />
               <Show when={windows()}>
                 <div class="shrink-0" style={{ width: windowsControlsWidth() }} />
               </Show>
@@ -590,6 +591,71 @@ export function Titlebar(props: { update?: TitlebarUpdate; debugTools?: { visibl
         </Match>
       </Switch>
     </header>
+  )
+}
+
+function SutradharModeSwitcher() {
+  const layout = useLayout()
+  const navigate = useNavigate()
+  const settings = useSettings()
+  const tabs = useTabs()
+  const serverSync = useServerSync()
+  const server = useServer()
+
+  const selectMode = (mode: AppMode) => {
+    layout.appMode.set(mode)
+    if (mode === "ide" && layout.route().type === "home") {
+      const targetDir =
+        layout.home.selection()?.directory ??
+        server.projects.list()[0]?.worktree ??
+        serverSync().data.project[0]?.worktree
+      if (!targetDir) return
+      if (settings.general.newLayoutDesigns()) {
+        tabs.newDraft({ server: server.key, directory: targetDir }, "")
+        return
+      }
+      navigate(`/${base64Encode(targetDir)}/session`)
+    }
+  }
+
+  const options: ReadonlyArray<{ id: AppMode; label: string; title: string }> = [
+    { id: "chat", label: "Chat", title: "Pure brainstorming & ideal systems chat (no computer access)" },
+    { id: "agent", label: "Agent", title: "Default agent workspace" },
+    { id: "ide", label: "IDE", title: "3-column coding IDE (Files, Editor, Terminal/Diffs, Agents)" },
+  ]
+
+  const activeIndex = () => Math.max(0, options.findIndex((opt) => opt.id === layout.appMode.current()))
+
+  return (
+    <div
+      role="group"
+      aria-label="Workspace mode"
+      class="relative z-30 mr-2 grid h-7 shrink-0 grid-cols-3 items-center rounded-full border border-v2-border-border-base bg-white/80 backdrop-blur-md p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_1px_3px_rgba(15,42,74,0.06)] pointer-events-auto [app-region:no-drag] [-webkit-app-region:no-drag]"
+    >
+      <span
+        aria-hidden="true"
+        class="pointer-events-none absolute top-0.5 bottom-0.5 left-0.5 w-[calc((100%-4px)/3)] rounded-full bg-white shadow-[0_1px_3px_rgba(15,42,74,0.1),0_0_0_0.5px_rgba(34,88,140,0.12)] transition-transform duration-250 ease-[cubic-bezier(0.22,1,0.36,1)]"
+        style={{ transform: `translateX(${activeIndex() * 100}%)` }}
+      />
+      {options.map((opt) => {
+        const active = () => layout.appMode.current() === opt.id
+        return (
+          <button
+            type="button"
+            title={opt.title}
+            aria-pressed={active()}
+            onClick={() => selectMode(opt.id)}
+            class="relative z-10 h-5.5 min-w-[54px] rounded-full px-3 text-[11px] font-medium transition-colors duration-200 cursor-pointer [app-region:no-drag] [-webkit-app-region:no-drag]"
+            classList={{
+              "text-text-strong": active(),
+              "text-text-weak hover:text-text-strong": !active(),
+            }}
+          >
+            {opt.label}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -614,6 +680,7 @@ function TitlebarV2Right(props: { state: TitlebarV2RightState }) {
 
   return (
     <div class="relative z-20 flex shrink-0 items-center justify-end gap-0 overflow-visible">
+      <SutradharModeSwitcher />
       <Show when={settings.visibility.search()}>
         <TooltipV2
           placement="bottom"
@@ -652,7 +719,7 @@ function TitlebarV2Right(props: { state: TitlebarV2RightState }) {
       <Show when={props.state.update.visible}>
         <TitlebarUpdateIconButton state={props.state.update} />
       </Show>
-      <div id="opencode-titlebar-right" class="flex shrink-0 items-center justify-end gap-0" />
+      <div id="sutradhar-titlebar-right" class="flex shrink-0 items-center justify-end gap-0" />
     </div>
   )
 }
@@ -683,32 +750,5 @@ function TitlebarUpdateIconButton(props: { state: TitlebarUpdatePillState }) {
         </span>
       </button>
     </div>
-  )
-}
-
-function ChannelIndicator(props: { debugTools?: { visible: boolean; toggle: () => void } }) {
-  const channel = import.meta.env.VITE_OPENCODE_CHANNEL
-  if (channel === "dev" && props.debugTools) {
-    return (
-      <button
-        type="button"
-        class="bg-icon-interactive-base text-[#FFF] font-medium px-2 rounded-sm uppercase font-mono cursor-pointer"
-        onClick={props.debugTools.toggle}
-        aria-label="Toggle debug tools"
-        aria-pressed={props.debugTools.visible}
-      >
-        DEV
-      </button>
-    )
-  }
-
-  return (
-    <>
-      {["beta", "dev"].includes(channel) && (
-        <div class="bg-icon-interactive-base text-[#FFF] font-medium px-2 rounded-sm uppercase font-mono">
-          {channel.toUpperCase()}
-        </div>
-      )}
-    </>
   )
 }

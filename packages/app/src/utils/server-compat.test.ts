@@ -60,7 +60,7 @@ describe("createCompatibleApi", () => {
 
     const url = new URL(requests[0]!.url)
     expect(url.pathname).toBe("/session/ses_1")
-    expect(requests[0]!.headers.get("x-opencode-directory")).toBe("%2Frepo")
+    expect(requests[0]!.headers.get("x-sutradhar-directory")).toBe("%2Frepo")
     expect(requests[0]!.method).toBe("PATCH")
     expect(await requests[0]!.json()).toMatchObject({ time: { archived: expect.any(Number) } })
   })
@@ -164,6 +164,13 @@ describe("createCompatibleApi", () => {
     expect(new URL(requests[0]!.url).pathname).toBe("/experimental/session")
   })
 
+  test("uses the global V1 session list endpoint without search", async () => {
+    const { api, requests } = setup("v1")
+    await api.session.list({ parentID: null, limit: 50 })
+
+    expect(new URL(requests[0]!.url).pathname).toBe("/experimental/session")
+  })
+
   /*
   test("projects the V1 default branch", async () => {
     const { api } = setup("v1", { vcs: { branch: "feature", default_branch: "dev" } })
@@ -211,8 +218,8 @@ describe("createCompatibleApi", () => {
       "/instance/dispose",
       "/instance/dispose",
     ])
-    expect(requests[1]!.headers.get("x-opencode-directory")).toBe("%2Frepo")
-    expect(requests[2]!.headers.get("x-opencode-directory")).toBeNull()
+    expect(requests[1]!.headers.get("x-sutradhar-directory")).toBe("%2Frepo")
+    expect(requests[2]!.headers.get("x-sutradhar-directory")).toBeNull()
   })
 
   test("disposes the V1 instance after completing provider OAuth", async () => {
@@ -230,7 +237,7 @@ describe("createCompatibleApi", () => {
       "/instance/dispose",
       "/instance/dispose",
     ])
-    expect(requests[1]!.headers.get("x-opencode-directory")).toBe("%2Frepo")
-    expect(requests[2]!.headers.get("x-opencode-directory")).toBeNull()
+    expect(requests[1]!.headers.get("x-sutradhar-directory")).toBe("%2Frepo")
+    expect(requests[2]!.headers.get("x-sutradhar-directory")).toBeNull()
   })
 })

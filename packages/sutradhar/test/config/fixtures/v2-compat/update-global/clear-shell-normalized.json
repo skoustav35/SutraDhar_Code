@@ -1,0 +1,5 @@
+{
+  "$schema": "https://sutradhar.ai/config.json",
+  "model": "example/demo",
+  "snapshot": false
+}

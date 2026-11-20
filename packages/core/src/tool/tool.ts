@@ -1,6 +1,6 @@
 export * as Tool from "./tool"
 
-import { ToolDefinition, ToolFailure, ToolOutput, type ToolCall } from "@opencode-ai/llm"
+import { ToolDefinition, ToolFailure, ToolOutput, type ToolCall } from "@sutradhar/llm"
 import { Effect, JsonSchema, Schema } from "effect"
 import type { AgentV2 } from "../agent"
 import type { SessionMessage } from "../session/message"
@@ -9,6 +9,7 @@ import type { SessionSchema } from "../session/schema"
 export interface Context {
   readonly sessionID: SessionSchema.ID
   readonly agent: AgentV2.ID
+  readonly modelName?: string
   readonly assistantMessageID: SessionMessage.ID
   readonly toolCallID: string
 }

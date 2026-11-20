@@ -1,11 +1,11 @@
-import { ImagePreview } from "@opencode-ai/ui/image-preview"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
-import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
-import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
-import { Icon } from "@opencode-ai/ui/v2/icon"
-import { KeybindV2 } from "@opencode-ai/ui/v2/keybind-v2"
-import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
-import type { ReferenceInfo } from "@opencode-ai/sdk/v2/client"
+import { ImagePreview } from "@sutradhar/ui/image-preview"
+import { useDialog } from "@sutradhar/ui/context/dialog"
+import { ProviderIcon } from "@sutradhar/ui/provider-icon"
+import { ButtonV2 } from "@sutradhar/ui/v2/button-v2"
+import { Icon } from "@sutradhar/ui/v2/icon"
+import { KeybindV2 } from "@sutradhar/ui/v2/keybind-v2"
+import { TooltipV2 } from "@sutradhar/ui/v2/tooltip-v2"
+import type { ReferenceInfo } from "@sutradhar/sdk/v2/client"
 import { createEffect, createMemo, on, Show } from "solid-js"
 import { ModelSelectorPopoverV2 } from "@/components/dialog-select-model"
 import { DialogSelectModelUnpaidV2 } from "@/components/dialog-select-model-unpaid-v2"
@@ -23,15 +23,17 @@ import { usePermission } from "@/context/permission"
 import { type ImageAttachmentPart, usePrompt } from "@/context/prompt"
 import { usePlatform } from "@/context/platform"
 import { useSDK } from "@/context/sdk"
+import { useServerSDK } from "@/context/server-sdk"
 import { useSync } from "@/context/sync"
+import { useSkills } from "@/context/skills"
 import { createSessionTabs } from "@/pages/session/helpers"
 import { showToast } from "@/utils/toast"
-import { PromptInputV2, type PromptInputV2Suggestion } from "@opencode-ai/session-ui/v2/prompt-input"
+import { PromptInputV2, type PromptInputV2Suggestion } from "@sutradhar/session-ui/v2/prompt-input"
 import {
   createPromptInputV2Controller,
   createPromptInputV2State,
   type PromptInputV2Interaction,
-} from "@opencode-ai/session-ui/v2/prompt-input/interaction"
+} from "@sutradhar/session-ui/v2/prompt-input/interaction"
 
 export type PromptInputV2ComposerProps = {
   class?: string
@@ -48,6 +50,8 @@ export function PromptInputV2Composer(props: PromptInputV2ComposerProps) {
   const dialog = useDialog()
   const command = useCommand()
   const language = useLanguage()
+  const serverSDK = useServerSDK()
+  const syncModels = () => serverSDK().client.global.dispose().then(() => undefined)
 
   return (
     <div class="flex flex-col gap-3">
@@ -68,8 +72,9 @@ export function PromptInputV2Composer(props: PromptInputV2ComposerProps) {
             providerID={props.controller.model.selection.current()?.provider?.id}
             modelName={props.controller.model.selection.current()?.name ?? language.t("dialog.model.select.title")}
             onClose={props.controller.restoreFocus}
+            onSync={syncModels}
             onUnpaidClick={() =>
-              dialog.show(() => <DialogSelectModelUnpaidV2 model={props.controller.model.selection} />)
+              dialog.show(() => <DialogSelectModelUnpaidV2 model={props.controller.model.selection} onSync={syncModels} />)
             }
           />
         }
@@ -89,6 +94,7 @@ export function usePromptInputV2Controller(props: PromptInputV2ControllerProps):
   const permission = usePermission()
   const language = useLanguage()
   const platform = usePlatform()
+  const skills = useSkills()
   const prompt = props.state ?? usePrompt()
   let editor: HTMLDivElement | undefined
 
@@ -290,6 +296,21 @@ export function usePromptInputV2Controller(props: PromptInputV2ControllerProps):
     })),
   ])
   const slashCommands = createMemo(() => [
+    ...skills
+      .installed()
+      .filter(
+        (skill) =>
+          !sync()
+            .data.command.some((item) => item.name === skill.slash) &&
+          !command.options.some((item) => item.slash === skill.slash),
+      )
+      .map((skill) => ({
+        id: `skills.${skill.id}`,
+        trigger: skill.slash,
+        title: skill.name,
+        description: skill.tagline,
+        type: "custom" as const,
+      })),
     ...sync().data.command.map((item) => ({
       id: `custom.${item.name}`,
       trigger: item.name,
@@ -358,6 +379,17 @@ export function usePromptInputV2Controller(props: PromptInputV2ControllerProps):
     },
     onSuggestionSelect(item) {
       if (item.kind !== "command") return
+
+      if (item.id.startsWith("skills.")) {
+        const skill = skills.installed().find((entry) => `skills.${entry.id}` === item.id)
+        if (!skill) return
+        return () => {
+          const text = skills.prompt(skill)
+          prompt.capture().set([{ type: "text", content: text, start: 0, end: text.length }], text.length)
+          requestAnimationFrame(() => editor?.focus())
+        }
+      }
+
       const selected = slashCommands().find((entry) => entry.id === item.id)
       if (!selected || selected.type === "custom") return
       return () => command.trigger(selected.id, "slash")
@@ -477,6 +509,7 @@ function PromptInputV2ModelControl(props: {
   providerID?: string
   modelName: string
   onClose: () => void
+  onSync: () => Promise<void>
   onUnpaidClick: () => void
 }) {
   const shouldAnimate = createMemo<boolean>((previous) => previous ?? props.loading)
@@ -543,6 +576,7 @@ function PromptInputV2ModelControl(props: {
               </ButtonV2>
             )}
             onClose={props.onClose}
+            onSync={props.onSync}
           />
         </Show>
       </TooltipV2>

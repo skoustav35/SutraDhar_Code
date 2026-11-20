@@ -11,6 +11,8 @@ export interface DialogProps extends ParentProps {
   class?: ComponentProps<"div">["class"]
   classList?: ComponentProps<"div">["classList"]
   fit?: boolean
+  /** Kept for compatibility with legacy dialog call sites. */
+  transition?: boolean
 }
 
 export function Dialog(props: DialogProps) {
@@ -31,10 +33,10 @@ export function Dialog(props: DialogProps) {
           }}
           onOpenAutoFocus={(e) => {
             if (!(e.currentTarget instanceof HTMLElement)) return
-            const autofocusEl = e.currentTarget.querySelector<HTMLElement>("[autofocus]")
+            const autofocusEl = e.currentTarget.querySelector<HTMLElement>("[data-autofocus], [autofocus]")
             if (!autofocusEl) return
             e.preventDefault()
-            autofocusEl.focus()
+            autofocusEl.focus({ preventScroll: true })
           }}
         >
           <Show when={props.title || props.action}>

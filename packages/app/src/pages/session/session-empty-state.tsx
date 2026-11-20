@@ -1,4 +1,4 @@
-import { Icon } from "@opencode-ai/ui/v2/icon"
+import { Icon } from "@sutradhar/ui/v2/icon"
 import "./session-empty-state.css"
 
 /**

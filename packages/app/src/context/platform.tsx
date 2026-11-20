@@ -1,4 +1,4 @@
-import { createSimpleContext } from "@opencode-ai/ui/context"
+import { createSimpleContext } from "@sutradhar/ui/context"
 import type { AsyncStorage, SyncStorage } from "@solid-primitives/storage"
 import type { Accessor } from "solid-js"
 import type { DesktopMenuAction } from "../desktop-menu"
@@ -19,6 +19,12 @@ type OpenAttachmentPickerOptions = {
 type SaveFilePickerOptions = { title?: string; defaultPath?: string }
 type PlatformName = "web" | "desktop"
 type DesktopOS = "macos" | "windows" | "linux"
+export type ComputerUseStatus = {
+  ready: boolean
+  endpoint?: string
+  browser?: { ready: boolean; backend: string }
+  desktop?: { ready: boolean; backend: string | null; platform: string }
+}
 
 export type FatalRendererErrorLog = {
   error: string
@@ -121,6 +127,12 @@ type PlatformBase = {
 
   /** Record a fatal renderer error in platform logs (desktop only) */
   recordFatalRendererError?(error: FatalRendererErrorLog): Promise<void>
+
+  computerUse?: {
+    status(): Promise<ComputerUseStatus>
+    start(): Promise<unknown>
+    stop(): Promise<void>
+  }
 }
 
 export type Platform = PlatformBase &

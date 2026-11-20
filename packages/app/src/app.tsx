@@ -1,14 +1,15 @@
 import "@/index.css"
 import "@/styles/shell-polish.css"
 import "@/styles/new-layout-light.css"
+import "@/styles/settings-polish.css"
 import * as Sentry from "@sentry/solid"
-import { I18nProvider } from "@opencode-ai/ui/context"
-import { DialogProvider } from "@opencode-ai/ui/context/dialog"
-import { FileComponentProvider } from "@opencode-ai/ui/context/file"
-import { File } from "@opencode-ai/session-ui/file"
-import { Font } from "@opencode-ai/ui/font"
-import { Splash } from "@opencode-ai/ui/logo"
-import { ThemeProvider } from "@opencode-ai/ui/theme/context"
+import { I18nProvider } from "@sutradhar/ui/context"
+import { DialogProvider } from "@sutradhar/ui/context/dialog"
+import { FileComponentProvider } from "@sutradhar/ui/context/file"
+import { File } from "@sutradhar/session-ui/file"
+import { Font } from "@sutradhar/ui/font"
+import { Splash } from "@sutradhar/ui/logo"
+import { ThemeProvider } from "@sutradhar/ui/theme/context"
 import { MetaProvider } from "@solidjs/meta"
 import {
   type BaseRouterProps,
@@ -22,7 +23,7 @@ import {
 } from "@solidjs/router"
 import { QueryClient, QueryClientProvider } from "@tanstack/solid-query"
 import { Effect } from "effect"
-import { base64Encode } from "@opencode-ai/core/util/encode"
+import { base64Encode } from "@sutradhar/core/util/encode"
 import {
   type Component,
   createEffect,
@@ -33,7 +34,7 @@ import {
   ErrorBoundary,
   For,
   type JSX,
-  lazy,
+
   onCleanup,
   type ParentProps,
   Show,
@@ -42,6 +43,7 @@ import { Dynamic } from "solid-js/web"
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { CommandProvider, useCommand, type CommandOption } from "@/context/command"
 import { CommentsProvider } from "@/context/comments"
+import { SkillsProvider } from "@/context/skills"
 import { FileProvider } from "@/context/file"
 import { ServerSDKProvider } from "@/context/server-sdk"
 import { ServerSyncProvider, useServerSync } from "@/context/server-sync"
@@ -54,10 +56,12 @@ import { NotificationProvider } from "@/context/notification"
 import { PermissionProvider } from "@/context/permission"
 import { usePlatform } from "@/context/platform"
 import { PromptProvider } from "@/context/prompt"
+import { TerminalProvider } from "@/context/terminal"
 import { ServerConnection, ServerProvider, serverName, useServer } from "@/context/server"
 import { SettingsProvider, useSettings } from "@/context/settings"
 import { TabsProvider, useTabs, type DraftTab } from "@/context/tabs"
 import { SDKProvider, useSDK } from "@/context/sdk"
+import { SutradharAuthProvider } from "@/context/sutradhar-auth"
 import { WslServersProvider } from "@/wsl/context"
 import DirectoryLayout, { DirectoryDataProvider } from "@/pages/directory-layout"
 import LegacyLayout from "@/pages/layout"
@@ -71,7 +75,7 @@ import { SessionPage, SessionRouteErrorBoundary, TargetSessionRouteContent } fro
 import { NewHome } from "@/pages/home"
 import { LegacyHome } from "@/pages/home/legacy-home"
 
-const NewSession = lazy(() => import("@/pages/new-session"))
+import NewSession from "@/pages/new-session"
 
 const SessionRoute = () => {
   const settings = useSettings()
@@ -270,7 +274,7 @@ function LayoutCompatibility(props: ParentProps) {
 
 declare global {
   interface Window {
-    __OPENCODE__?: {
+    __SUTRADHAR__?: {
       deepLinks?: string[]
     }
     api?: {
@@ -314,13 +318,13 @@ function BodyDesignClass() {
 // shell (router root) so they stay mounted regardless of the active server/route.
 function SharedProviders(props: ParentProps) {
   return (
-    <>
+    <SutradharAuthProvider>
       <BodyDesignClass />
       <CommandProvider>
         <DesktopCommands />
         <HighlightsProvider>{props.children}</HighlightsProvider>
       </CommandProvider>
-    </>
+    </SutradharAuthProvider>
   )
 }
 
@@ -363,10 +367,21 @@ function ServerScopedProviders(props: ServerScopedShellProps) {
 }
 
 function LegacyServerScopedShell(props: ServerScopedShellProps) {
+  const settings = useSettings()
   return (
-    <ServerScopedProviders directory={props.directory} serverScoped={props.serverScoped}>
-      <LegacyLayout>{props.children}</LegacyLayout>
-    </ServerScopedProviders>
+    <Show
+      when={!settings.general.newLayoutDesigns()}
+      fallback={
+        <ModelsProvider directory={props.directory}>
+          {props.serverScoped}
+          {props.children}
+        </ModelsProvider>
+      }
+    >
+      <ServerScopedProviders directory={props.directory} serverScoped={props.serverScoped}>
+        <LegacyLayout>{props.children}</LegacyLayout>
+      </ServerScopedProviders>
+    </Show>
   )
 }
 
@@ -384,11 +399,13 @@ function NewAppLayout(props: ParentProps<{ serverScoped?: JSX.Element }>) {
 // FileProvider and CommentsProvider stay because PromptInput uses file search and comment context.
 function DraftProviders(props: ParentProps) {
   return (
-    <FileProvider>
-      <PromptProvider>
-        <CommentsProvider>{props.children}</CommentsProvider>
-      </PromptProvider>
-    </FileProvider>
+    <TerminalProvider>
+      <FileProvider>
+        <PromptProvider>
+          <CommentsProvider>{props.children}</CommentsProvider>
+        </PromptProvider>
+      </FileProvider>
+    </TerminalProvider>
   )
 }
 
@@ -417,7 +434,9 @@ export function AppBaseProviders(
               <QueryProvider>
                 <WslServersProvider>
                   <DialogProvider>
-                    <FileComponentProvider component={File}>{props.children}</FileComponentProvider>
+                    <SkillsProvider>
+                      <FileComponentProvider component={File}>{props.children}</FileComponentProvider>
+                    </SkillsProvider>
                   </DialogProvider>
                 </WslServersProvider>
               </QueryProvider>

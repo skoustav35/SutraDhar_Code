@@ -1,4 +1,4 @@
-import { sampledChecksum } from "@opencode-ai/core/util/encode"
+import { sampledChecksum } from "@sutradhar/core/util/encode"
 import {
   areFilesEqual,
   areOptionsEqual,

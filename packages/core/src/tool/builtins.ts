@@ -14,6 +14,7 @@ import { TodoWriteTool } from "./todowrite"
 import { WebFetchTool } from "./webfetch"
 import { WebSearchTool } from "./websearch"
 import { WriteTool } from "./write"
+import { SutradharIdentityTool } from "./identity"
 
 /**
  * Composes only the shipped Location-scoped built-in tool transforms.
@@ -39,6 +40,7 @@ export const node = makeLocationNode({
     GrepTool.node,
     QuestionTool.node,
     ReadTool.node,
+    SutradharIdentityTool.node,
     SkillTool.node,
     TodoWriteTool.node,
     WebFetchTool.node,

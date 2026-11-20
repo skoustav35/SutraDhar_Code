@@ -1,4 +1,4 @@
-import type { Event, Session, SessionV2Info, V2SessionListResponse } from "@opencode-ai/sdk/v2/client"
+import type { Event, Session, SessionV2Info, V2SessionListResponse } from "@sutradhar/sdk/v2/client"
 import type { QueryClient } from "@tanstack/solid-query"
 import { trimSessions } from "./session-trim"
 import { pathKey } from "@/utils/path-key"
@@ -167,6 +167,9 @@ export function applyHomeSessionEvent(sessions: Session[], event: HomeSessionEve
 }
 
 function toLegacySummary(session: SessionV2Info): Session {
+  const title = session.title?.trim()
+    ? session.title
+    : `${session.parentID ? "Child" : "New"} session - ${new Date(session.time.created).toISOString()}`
   return {
     id: session.id,
     slug: session.id,
@@ -177,7 +180,7 @@ function toLegacySummary(session: SessionV2Info): Session {
     parentID: session.parentID,
     cost: session.cost,
     tokens: session.tokens,
-    title: session.title,
+    title,
     agent: session.agent,
     model: session.model,
     version: "",

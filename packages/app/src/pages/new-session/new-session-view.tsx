@@ -1,8 +1,10 @@
-import { useDialog } from "@opencode-ai/ui/context/dialog"
-import { Tooltip } from "@opencode-ai/ui/tooltip"
-import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
-import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
+import { useDialog } from "@sutradhar/ui/context/dialog"
+import { Tooltip } from "@sutradhar/ui/tooltip"
+import { Icon as IconV2 } from "@sutradhar/ui/v2/icon"
+import { TooltipV2 } from "@sutradhar/ui/v2/tooltip-v2"
 import { SutradharWordmark } from "@/components/sutradhar-wordmark"
+import { ChatBrainstormEmpty } from "@/components/chat-mode/chat-brainstorm-view"
+import { useLayout } from "@/context/layout"
 import { Show, createMemo, createSignal, type Accessor } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Portal } from "solid-js/web"
@@ -30,46 +32,64 @@ export function NewSessionView(props: {
   input: NewSessionDraftController["input"]
   project: PromptProjectController
   workspace: NewSessionWorkspaceController
+  onPickBrainstorm?: (promptText: string) => void
 }) {
+  const layout = useLayout()
+
   return (
     <div class="@container relative flex flex-col min-h-0 h-full flex-1">
       <div
         data-component="session-new-design"
         data-slot="session-panel-frame"
-        class="relative flex-1 min-h-0 overflow-hidden rounded-[18px] border border-v2-border-border-base bg-v2-background-bg-base shadow-[var(--v2-elevation-raised)]"
+        data-app-mode={layout.appMode.current()}
+        class="relative flex-1 min-h-0 overflow-hidden rounded-[22px] border border-v2-border-border-base bg-v2-background-bg-base shadow-[var(--v2-elevation-raised)]"
       >
-        <div class="absolute inset-x-0 top-[25.375%] flex justify-center px-6">
-          <div class={NEW_SESSION_CONTENT_WIDTH}>
-            <SutradharWordmark />
-            <div class="mt-8 flex flex-col gap-8">
-              <PromptInputV2Composer controller={props.input} />
-              <Show when={props.project.empty()}>
-                <PromptProjectAddButton controller={props.project} />
-              </Show>
-              <Show when={props.project.selected()}>
-                <div class="flex min-h-7 min-w-0 flex-col items-center justify-center gap-0 text-v2-text-text-faint sm:flex-row">
-                  <PromptProjectSelector controller={props.project} placement="bottom" />
-                  <Show
-                    when={props.workspace.bar.visible()}
-                    fallback={
-                      <PromptGitStatus branch={props.workspace.bar.branch()} noGit={!props.workspace.project.git()} />
-                    }
-                  >
-                    <PromptWorkspaceSelector
-                      value={props.workspace.selection.value()}
-                      projectRoot={props.workspace.project.root()}
-                      workspaces={props.workspace.project.workspaces()}
-                      branch={props.workspace.bar.branch()}
-                      onChange={props.workspace.selection.set}
-                      onDone={props.input.restoreFocus}
-                    />
-                  </Show>
-                </div>
-              </Show>
+        <Show
+          when={!layout.appMode.isChat()}
+          fallback={
+            <div class="sutradhar-mode-enter relative flex h-full min-h-0 flex-col justify-between overflow-hidden px-4 sm:px-6 pt-4 pb-4">
+              <div class="flex-1 min-h-0 flex flex-col justify-center overflow-hidden">
+                <ChatBrainstormEmpty onPick={(text) => props.onPickBrainstorm?.(text)} />
+              </div>
+              <div class="mx-auto w-full max-w-[840px] shrink-0 pt-2">
+                <PromptInputV2Composer controller={props.input} borderUnderlay />
+              </div>
+            </div>
+          }
+        >
+          <div class="sutradhar-mode-enter absolute inset-x-0 top-[25.375%] flex justify-center px-6">
+            <div class={NEW_SESSION_CONTENT_WIDTH}>
+              <SutradharWordmark />
+              <div class="mt-8 flex flex-col gap-8">
+                <PromptInputV2Composer controller={props.input} />
+                <Show when={props.project.empty()}>
+                  <PromptProjectAddButton controller={props.project} />
+                </Show>
+                <Show when={props.project.selected()}>
+                  <div class="flex min-h-7 min-w-0 flex-col items-center justify-center gap-0 text-v2-text-text-faint sm:flex-row">
+                    <PromptProjectSelector controller={props.project} placement="bottom" />
+                    <Show
+                      when={props.workspace.bar.visible()}
+                      fallback={
+                        <PromptGitStatus branch={props.workspace.bar.branch()} noGit={!props.workspace.project.git()} />
+                      }
+                    >
+                      <PromptWorkspaceSelector
+                        value={props.workspace.selection.value()}
+                        projectRoot={props.workspace.project.root()}
+                        workspaces={props.workspace.project.workspaces()}
+                        branch={props.workspace.bar.branch()}
+                        onChange={props.workspace.selection.set}
+                        onDone={props.input.restoreFocus}
+                      />
+                    </Show>
+                  </div>
+                </Show>
+              </div>
             </div>
           </div>
-        </div>
-        <ProviderTip />
+          <ProviderTip />
+        </Show>
       </div>
     </div>
   )

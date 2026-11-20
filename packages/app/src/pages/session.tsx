@@ -1,6 +1,6 @@
-import type { FilePart, Project, UserMessage, VcsFileDiff } from "@opencode-ai/sdk/v2"
-import { getFilename } from "@opencode-ai/core/util/path"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
+import type { FilePart, Project, UserMessage, VcsFileDiff } from "@sutradhar/sdk/v2"
+import { getFilename } from "@sutradhar/core/util/path"
+import { useDialog } from "@sutradhar/ui/context/dialog"
 import { createQuery, skipToken, useMutation, useQueryClient } from "@tanstack/solid-query"
 import {
   batch,
@@ -26,20 +26,22 @@ import { debounce } from "@solid-primitives/scheduled"
 import { useLocal } from "@/context/local"
 import { FileProvider, selectionFromLines, useFile, type FileSelection, type SelectedLineRange } from "@/context/file"
 import { createStore } from "solid-js/store"
-import type { SessionReviewLineComment } from "@opencode-ai/session-ui/session-review"
-import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
-import { Select } from "@opencode-ai/ui/select"
-import { SelectV2 } from "@opencode-ai/ui/v2/select-v2"
-import { isScrollKeyTarget, scrollKey, scrollKeyOwner } from "@opencode-ai/ui/scroll-view"
-import { Tabs } from "@opencode-ai/ui/tabs"
-import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
-import { createAutoScroll } from "@opencode-ai/ui/hooks"
-import { previewSelectedLines } from "@opencode-ai/session-ui/pierre/selection-bridge"
-import { Button } from "@opencode-ai/ui/button"
+import type { SessionReviewLineComment } from "@sutradhar/session-ui/session-review"
+import { ResizeHandle } from "@sutradhar/ui/resize-handle"
+import { Select } from "@sutradhar/ui/select"
+import { SelectV2 } from "@sutradhar/ui/v2/select-v2"
+import { isScrollKeyTarget, scrollKey, scrollKeyOwner } from "@sutradhar/ui/scroll-view"
+import { Tabs } from "@sutradhar/ui/tabs"
+import { ButtonV2 } from "@sutradhar/ui/v2/button-v2"
+import { createAutoScroll } from "@sutradhar/ui/hooks"
+import { previewSelectedLines } from "@sutradhar/session-ui/pierre/selection-bridge"
+import { Button } from "@sutradhar/ui/button"
 import { showToast } from "@/utils/toast"
-import { base64Encode, checksum } from "@opencode-ai/core/util/encode"
+import { base64Encode, checksum } from "@sutradhar/core/util/encode"
 import { useLocation, useNavigate, useParams, useSearchParams } from "@solidjs/router"
 import { NewSessionView, SessionHeader } from "@/components/session"
+import { ChatBrainstormEmpty } from "@/components/chat-mode/chat-brainstorm-view"
+import { IdeWorkspace } from "@/pages/session/ide-workspace"
 import { ErrorPage } from "@/pages/error"
 import { CommentsProvider, useComments } from "@/context/comments"
 import { useCommand } from "@/context/command"
@@ -84,9 +86,9 @@ import {
 } from "@/pages/session/session-panel-width"
 import { SessionSidePanel } from "@/pages/session/session-side-panel"
 import { sessionPanelLayout } from "@/pages/session/session-panel-layout"
-import { SessionReviewEmptyChangesV2 } from "@opencode-ai/session-ui/v2/session-review-empty-changes-v2"
-import { SessionReviewEmptyNoGitV2 } from "@opencode-ai/session-ui/v2/session-review-empty-no-git-v2"
-import { SessionReviewV2SidebarToggle } from "@opencode-ai/session-ui/v2/session-review-v2"
+import { SessionReviewEmptyChangesV2 } from "@sutradhar/session-ui/v2/session-review-empty-changes-v2"
+import { SessionReviewEmptyNoGitV2 } from "@sutradhar/session-ui/v2/session-review-empty-no-git-v2"
+import { SessionReviewV2SidebarToggle } from "@sutradhar/session-ui/v2/session-review-v2"
 import { ReviewPanelV2 } from "@/pages/session/v2/review-panel-v2"
 import { createReviewPanelV2State } from "@/pages/session/v2/review-panel-v2-state"
 import { reviewDiffDirectory, reviewDiffNeedsLoad, reviewRootDirectory } from "@/pages/session/v2/review-diff-kinds"
@@ -335,15 +337,16 @@ function SessionRouteFrame(props: ParentProps<{ padded?: boolean }>) {
   )
 }
 
-function SessionPanelFrame(props: ParentProps<{ newLayout: boolean; raised?: boolean }>) {
+function SessionPanelFrame(props: ParentProps<{ newLayout: boolean; raised?: boolean; appMode?: string }>) {
   return (
     <div
       data-slot="session-panel-frame"
+      data-app-mode={props.appMode}
       classList={{
         "flex-1 min-h-0 flex flex-col": true,
         "bg-v2-background-bg-base": props.newLayout,
         "bg-background-stronger": !props.newLayout,
-        "rounded-[18px] border border-v2-border-border-base overflow-hidden": props.newLayout,
+        "rounded-[22px] border border-v2-border-border-base overflow-hidden": props.newLayout,
         "shadow-[var(--v2-elevation-raised)]": props.newLayout && props.raised,
       }}
     >
@@ -448,16 +451,19 @@ export default function Page() {
   )
 
   const isDesktop = createMediaQuery("(min-width: 768px)")
+  const isChatMode = createMemo(() => layout.appMode.isChat())
+  const isIdeMode = createMemo(() => isDesktop() && layout.appMode.isIde())
   const size = createSizing()
-  const desktopReviewOpen = createMemo(() => isDesktop() && view().reviewPanel.opened())
-  const desktopV2ReviewOpen = createMemo(() => newSessionDesign() && desktopReviewOpen() && !!params.id)
-  const terminalOpen = createMemo(() => view().terminal.opened())
-  const desktopTerminalOpen = createMemo(() => isDesktop() && terminalOpen())
+  const desktopReviewOpen = createMemo(() => !isChatMode() && isDesktop() && view().reviewPanel.opened())
+  const desktopV2ReviewOpen = createMemo(() => !isChatMode() && newSessionDesign() && desktopReviewOpen() && !!params.id)
+  const terminalOpen = createMemo(() => !isChatMode() && view().terminal.opened())
+  const desktopTerminalOpen = createMemo(() => !isChatMode() && isDesktop() && terminalOpen())
   const desktopInlineTerminalOnlyOpen = createMemo(
-    () => newSessionDesign() && desktopTerminalOpen() && !desktopV2ReviewOpen(),
+    () => !isChatMode() && newSessionDesign() && desktopTerminalOpen() && !desktopV2ReviewOpen(),
   )
   const desktopFileTreeOpen = createMemo(
     () =>
+      !isChatMode() &&
       isDesktop() &&
       shouldShowFileTree({
         visible: settings.visibility.fileTree(),
@@ -511,6 +517,31 @@ export default function Page() {
       files: desktopFileTreeOpen(),
     }),
   )
+  const rightPanelActive = createMemo(() => (isDesktop() ? desktopV2PanelLayout().visible : terminalOpen()))
+  const [rightPanelPresent, setRightPanelPresent] = createSignal(rightPanelActive())
+  createEffect(() => {
+    if (rightPanelActive()) {
+      setRightPanelPresent(true)
+    } else {
+      const timer = setTimeout(() => {
+        if (!rightPanelActive()) setRightPanelPresent(false)
+      }, 320)
+      onCleanup(() => clearTimeout(timer))
+    }
+  })
+
+  const sidePanelActive = createMemo(() => isDesktop() && (desktopV2ReviewOpen() || desktopFileTreeOpen()))
+  const [sidePanelPresent, setSidePanelPresent] = createSignal(sidePanelActive())
+  createEffect(() => {
+    if (sidePanelActive()) {
+      setSidePanelPresent(true)
+    } else {
+      const timer = setTimeout(() => {
+        if (!sidePanelActive()) setSidePanelPresent(false)
+      }, 320)
+      onCleanup(() => clearTimeout(timer))
+    }
+  })
 
   function normalizeTab(tab: string) {
     if (!tab.startsWith("file://")) return tab
@@ -1146,7 +1177,7 @@ export default function Page() {
     review: reviewTab,
     fileBrowser: () => newSessionDesign() && isDesktop() && !!params.id,
   })
-  command.register("session-palette", () => [
+  command.register("command.palette", () => [
     {
       id: "command.palette",
       title: language.t("command.palette"),
@@ -2131,17 +2162,41 @@ export default function Page() {
                 !isChildSession()
               }
             >
-              <SessionEmptyState
-                project={getFilename(sdk().directory) || language.t("sidebar.workspaces.main")}
-                onPick={(text) => {
-                  prompt.set([{ type: "text", content: text, start: 0, end: text.length }], text.length)
-                  focusInput()
-                }}
-              />
+              <Show
+                when={!isChatMode()}
+                fallback={
+                  <ChatBrainstormEmpty
+                    onPick={(text) => {
+                      prompt.set([{ type: "text", content: text, start: 0, end: text.length }], text.length)
+                      focusInput()
+                    }}
+                  />
+                }
+              >
+                <SessionEmptyState
+                  project={getFilename(sdk().directory) || language.t("sidebar.workspaces.main")}
+                  onPick={(text) => {
+                    prompt.set([{ type: "text", content: text, start: 0, end: text.length }], text.length)
+                    focusInput()
+                  }}
+                />
+              </Show>
             </Show>
           </Match>
           <Match when={true}>
-            <NewSessionView worktree={newSessionWorktree()} />
+            <Show
+              when={!isChatMode()}
+              fallback={
+                <ChatBrainstormEmpty
+                  onPick={(text) => {
+                    prompt.set([{ type: "text", content: text, start: 0, end: text.length }], text.length)
+                    focusInput()
+                  }}
+                />
+              }
+            >
+              <NewSessionView worktree={newSessionWorktree()} />
+            </Show>
           </Match>
         </Switch>
       </div>
@@ -2264,12 +2319,46 @@ export default function Page() {
     </>
   )
 
+  createEffect(() => {
+    const starter = (location.state as { brainstormPrompt?: string } | undefined)?.brainstormPrompt
+    if (!starter || !prompt.ready() || !isChatMode()) return
+    prompt.set([{ type: "text", content: starter, start: 0, end: starter.length }], starter.length)
+    focusInput()
+  })
+
   return (
     <SessionRouteFrame>
-      <SessionHeader />
-      <div
-        ref={panelRow}
-        class="flex-1 min-h-0 flex flex-col md:flex-row"
+      <SessionHeader reviewCount={reviewCount} />
+      <Show
+        when={!isIdeMode()}
+        fallback={
+          <IdeWorkspace
+            newLayout={newSessionDesign()}
+            reviewCount={reviewCount}
+            diffs={reviewDiffs}
+            renderDiffs={() =>
+              reviewContent({
+                diffStyle: layout.review.diffStyle(),
+                onDiffStyleChange: layout.review.setDiffStyle,
+                loadingClass: "px-4 py-4 text-text-weak",
+                emptyClass: "h-full flex flex-col items-center justify-center text-center gap-4 px-6",
+              })
+            }
+            agentPane={
+              settings.general.newLayoutDesigns() ? (
+                <Show when={sessionPanelKey()} keyed>
+                  {(_) => <ErrorBoundary fallback={sessionErrorFallback}>{sessionPanelContent()}</ErrorBoundary>}
+                </Show>
+              ) : (
+                sessionPanelContent()
+              )
+            }
+          />
+        }
+      >
+        <div
+          ref={panelRow}
+        class="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden"
         classList={{
           "gap-3.5 p-3 md:py-4 md:pe-5 md:ps-3.5": settings.general.newLayoutDesigns(),
         }}
@@ -2279,7 +2368,7 @@ export default function Page() {
         <div
           classList={{
             "@container relative shrink-0 flex flex-col min-h-0 h-full flex-1 md:flex-none transition-[width]": true,
-            "duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none":
+            "duration-[300ms] ease-[cubic-bezier(0.16,1,0.3,1)] will-change-[width] motion-reduce:transition-none":
               !size.active() && !ui.reviewSnap && !desktopInlineTerminalOnlyOpen(),
           }}
           style={{
@@ -2289,13 +2378,13 @@ export default function Page() {
           {settings.general.newLayoutDesigns() ? (
             <Show when={sessionPanelKey()} keyed>
               {(_) => (
-                <SessionPanelFrame newLayout raised={!!params.id}>
+                <SessionPanelFrame newLayout raised={!!params.id} appMode={layout.appMode.current()}>
                   <ErrorBoundary fallback={sessionErrorFallback}>{sessionPanelContent()}</ErrorBoundary>
                 </SessionPanelFrame>
               )}
             </Show>
           ) : (
-            <SessionPanelFrame newLayout={false} raised={!!params.id}>
+            <SessionPanelFrame newLayout={false} raised={!!params.id} appMode={layout.appMode.current()}>
               {sessionPanelContent()}
             </SessionPanelFrame>
           )}
@@ -2338,10 +2427,28 @@ export default function Page() {
           </Suspense>
         </Show>
         <Show when={newSessionDesign()}>
-          <Show when={isDesktop() ? desktopV2PanelLayout().visible : terminalOpen()}>
-            <div class="min-w-0 h-full flex flex-1 flex-col">
-              <Show when={isDesktop() && (desktopV2ReviewOpen() || desktopFileTreeOpen())}>
-                <div class="min-h-0 flex-1">
+          <Show when={rightPanelPresent()}>
+            <div
+              class="min-w-0 h-full flex flex-col will-change-[transform,opacity]"
+              classList={{
+                "transition-all duration-[300ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none":
+                  !size.active() && !ui.reviewSnap,
+                "flex-1 opacity-100 translate-x-0 scale-100 pointer-events-auto animate-side-panel-in":
+                  rightPanelActive(),
+                "flex-none w-0 min-w-0 max-w-0 opacity-0 translate-x-5 scale-[0.985] pointer-events-none -ms-3.5 overflow-hidden":
+                  !rightPanelActive(),
+              }}
+            >
+              <Show when={sidePanelPresent()}>
+                <div
+                  class="min-h-0 flex-1 will-change-[transform,opacity]"
+                  classList={{
+                    "transition-all duration-[300ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none":
+                      !size.active() && !ui.reviewSnap,
+                    "opacity-100 translate-x-0": sidePanelActive(),
+                    "opacity-0 translate-x-4 pointer-events-none": !sidePanelActive(),
+                  }}
+                >
                   <Suspense>
                     <SessionSidePanel
                       canReview={canReview}
@@ -2401,8 +2508,9 @@ export default function Page() {
         </Show>
       </div>
 
-      <Show when={!newSessionDesign()}>
+      <Show when={!newSessionDesign() && !isIdeMode() && !isChatMode()}>
         <TerminalPanel />
+      </Show>
       </Show>
     </SessionRouteFrame>
   )

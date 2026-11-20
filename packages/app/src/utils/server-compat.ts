@@ -1,6 +1,6 @@
 import type { ServerApi } from "./server"
 import type { ServerProtocol } from "./server-protocol"
-import type { AgentPartInput, FilePartInput, OpencodeClient, Session, TextPartInput } from "@opencode-ai/sdk/v2/client"
+import type { AgentPartInput, FilePartInput, SutradharClient, Session, TextPartInput } from "@sutradhar/sdk/v2/client"
 import type {
   Project,
   ProjectCurrent,
@@ -14,9 +14,9 @@ import type {
   SessionPromptOutput,
   SessionShellInput,
   SessionShellOutput,
-} from "@opencode-ai/client/promise"
+} from "@sutradhar/app-client/promise"
 
-type LegacyClient = OpencodeClient
+type LegacyClient = SutradharClient
 type LegacyFor = (directory?: string) => LegacyClient
 type CompatibleSessionApi = Omit<
   SessionApi,
@@ -141,12 +141,12 @@ function createV1Api(input: CompatibleInput): CompatibleApi {
         value?: Parameters<ServerApi["session"]["list"]>[0],
         options?: Parameters<ServerApi["session"]["list"]>[1],
       ) {
-        if (!value?.directory && value?.search !== undefined) {
+        if (!value?.directory) {
           const result = await legacy().experimental.session.list(
             {
-              roots: value.parentID === null ? true : undefined,
-              search: value.search,
-              limit: value.limit,
+              roots: value?.parentID === null ? true : undefined,
+              search: value?.search,
+              limit: value?.limit,
             },
             options,
           )

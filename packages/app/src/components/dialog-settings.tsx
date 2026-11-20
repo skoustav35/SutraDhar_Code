@@ -1,15 +1,19 @@
 import { Component, createSignal, startTransition } from "solid-js"
-import { Dialog } from "@opencode-ai/ui/dialog"
-import { Tabs } from "@opencode-ai/ui/tabs"
-import { Icon } from "@opencode-ai/ui/icon"
+import { Dialog } from "@sutradhar/ui/dialog"
+import { Tabs } from "@sutradhar/ui/tabs"
+import { Icon } from "@sutradhar/ui/icon"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { useDialog } from "@sutradhar/ui/context/dialog"
 import { SettingsGeneral } from "./settings-general"
 import { SettingsKeybinds } from "./settings-keybinds"
 import { SettingsProviders } from "./settings-providers"
 import { SettingsModels } from "./settings-models"
 import { SettingsServers } from "./settings-servers"
+import { SettingsAccount } from "./settings-account"
+import { SettingsSkills } from "./settings-skills"
+import { SettingsAgents } from "./settings-agents"
+import { SettingsComputerUse } from "./settings-computer-use"
 
 export const DialogSettings: Component<{ defaultValue?: string }> = (props) => {
   const language = useLanguage()
@@ -22,7 +26,7 @@ export const DialogSettings: Component<{ defaultValue?: string }> = (props) => {
   }
 
   return (
-    <Dialog size="x-large">
+    <Dialog size="x-large" class="sutradhar-settings-dialog">
       <Tabs
         orientation="vertical"
         variant="settings"
@@ -41,6 +45,10 @@ export const DialogSettings: Component<{ defaultValue?: string }> = (props) => {
                       <Icon name="sliders" />
                       {language.t("settings.tab.general")}
                     </Tabs.Trigger>
+                    <Tabs.Trigger value="account">
+                      <Icon name="shield" />
+                      Account
+                    </Tabs.Trigger>
                     <Tabs.Trigger value="shortcuts">
                       <Icon name="keyboard" />
                       {language.t("settings.tab.shortcuts")}
@@ -48,6 +56,24 @@ export const DialogSettings: Component<{ defaultValue?: string }> = (props) => {
                     <Tabs.Trigger value="servers">
                       <Icon name="server" />
                       {language.t("status.popover.tab.servers")}
+                    </Tabs.Trigger>
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                  <Tabs.SectionTitle>{language.t("settings.section.customize")}</Tabs.SectionTitle>
+                  <div class="flex flex-col gap-1.5 w-full">
+                    <Tabs.Trigger value="skills">
+                      <Icon name="checklist" />
+                      {language.t("settings.tab.skills")}
+                    </Tabs.Trigger>
+                    <Tabs.Trigger value="agents">
+                      <Icon name="brain" />
+                      {language.t("settings.agents.title")}
+                    </Tabs.Trigger>
+                    <Tabs.Trigger value="computer-use">
+                      <Icon name="window-cursor" />
+                      {language.t("settings.computerUse.title")}
                     </Tabs.Trigger>
                   </div>
                 </div>
@@ -76,6 +102,9 @@ export const DialogSettings: Component<{ defaultValue?: string }> = (props) => {
         <Tabs.Content value="general" class="no-scrollbar">
           <SettingsGeneral />
         </Tabs.Content>
+        <Tabs.Content value="account" class="no-scrollbar">
+          <SettingsAccount />
+        </Tabs.Content>
         <Tabs.Content value="shortcuts" class="no-scrollbar">
           <SettingsKeybinds />
         </Tabs.Content>
@@ -87,6 +116,15 @@ export const DialogSettings: Component<{ defaultValue?: string }> = (props) => {
         </Tabs.Content>
         <Tabs.Content value="models" class="no-scrollbar">
           <SettingsModels />
+        </Tabs.Content>
+        <Tabs.Content value="skills" class="no-scrollbar">
+          <SettingsSkills />
+        </Tabs.Content>
+        <Tabs.Content value="agents" class="no-scrollbar">
+          <SettingsAgents />
+        </Tabs.Content>
+        <Tabs.Content value="computer-use" class="no-scrollbar">
+          <SettingsComputerUse />
         </Tabs.Content>
       </Tabs>
     </Dialog>

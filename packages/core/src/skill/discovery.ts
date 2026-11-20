@@ -8,6 +8,7 @@ import { Global } from "../global"
 import { makeGlobalNode } from "../effect/app-node"
 import { httpClient } from "../effect/app-node-platform"
 import { AbsolutePath } from "../schema"
+import { Storage } from "../storage"
 
 const skillConcurrency = 4
 const fileConcurrency = 8
@@ -66,7 +67,7 @@ export interface Interface {
   readonly pull: (url: string) => Effect.Effect<AbsolutePath[]>
 }
 
-export class Service extends Context.Service<Service, Interface>()("@opencode/v2/SkillDiscovery") {}
+export class Service extends Context.Service<Service, Interface>()("@sutradhar/v2/SkillDiscovery") {}
 
 const layer = Layer.effect(
   Service,
@@ -126,7 +127,7 @@ const layer = Layer.effect(
             }
 
             const skillUrl = new URL(`${encodeURIComponent(skill.name)}/`, source)
-            const versionFile = path.join(root, ".opencode-version")
+            const versionFile = path.join(root, Storage.VERSION_FILE)
             const files = skill.files.map((file) => {
               if (!isSafeRelativePath(file)) return undefined
               let resource: URL
@@ -148,7 +149,14 @@ const layer = Layer.effect(
             if (files.some((file) => file === undefined)) {
               return []
             }
-            return [{ skill, root, versionFile, files: files as { url: string; destination: string; file: string }[] }]
+            return [
+              {
+                skill,
+                root,
+                versionFile,
+                files: files as { url: string; destination: string; file: string }[],
+              },
+            ]
           }),
           ({ skill, root, versionFile, files }) =>
             Effect.gen(function* () {
@@ -156,7 +164,9 @@ const layer = Layer.effect(
               const current =
                 version === undefined
                   ? undefined
-                  : yield* fs.readFileStringSafe(versionFile).pipe(Effect.catch(() => Effect.succeed(undefined)))
+                  : yield* fs.readFileStringSafe(versionFile).pipe(
+                      Effect.catch(() => Effect.succeed(undefined)),
+                    )
               if (version === undefined || current === version) {
                 yield* Effect.forEach(files, (file) => download(file.url, file.destination), {
                   concurrency: fileConcurrency,
@@ -177,7 +187,7 @@ const layer = Layer.effect(
                     (yield* fs.exists(path.join(staging, "SKILL.md")).pipe(Effect.orDie)) ||
                     (yield* fs.exists(path.join(staging, `${skill.name}.md`)).pipe(Effect.orDie))
                   if (!exists) return
-                  yield* fs.writeFileString(path.join(staging, ".opencode-version"), version)
+                  yield* fs.writeFileString(path.join(staging, Storage.VERSION_FILE), version)
                   yield* Effect.uninterruptible(
                     Effect.gen(function* () {
                       const cached = yield* fs.exists(root).pipe(Effect.orDie)

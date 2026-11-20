@@ -1,5 +1,5 @@
-import { createSimpleContext } from "@opencode-ai/ui/context"
-import { base64Encode } from "@opencode-ai/core/util/encode"
+import { createSimpleContext } from "@sutradhar/ui/context"
+import { base64Encode } from "@sutradhar/core/util/encode"
 import { useParams } from "@solidjs/router"
 import { batch, createEffect, createMemo, startTransition } from "solid-js"
 import { createStore } from "solid-js/store"
@@ -99,8 +99,10 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
     })
 
     const validModel = (model: ModelKey) => {
+      if (!connected().has(model.providerID)) return false
       const provider = providers.all().get(model.providerID)
-      return !!provider?.models[model.modelID] && connected().has(model.providerID)
+      if (provider?.models[model.modelID]) return true
+      return !!models.find(model)
     }
 
     const firstModel = (...items: Array<() => ModelKey | undefined>) => {

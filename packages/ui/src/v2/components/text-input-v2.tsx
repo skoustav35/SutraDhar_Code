@@ -41,6 +41,7 @@ export function TextInputV2(props: TextInputV2Props) {
     "invalid",
     "appearance",
     "disabled",
+    "autofocus",
   ])
 
   return (
@@ -65,6 +66,7 @@ export function TextInputV2(props: TextInputV2Props) {
           type={inputProps.type ?? "text"}
           disabled={local.disabled}
           aria-invalid={local.invalid ? true : undefined}
+          data-autofocus={local.autofocus ? "" : undefined}
           data-slot="text-input-v2-input"
         />
       </div>

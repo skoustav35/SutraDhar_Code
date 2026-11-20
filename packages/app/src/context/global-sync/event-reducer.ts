@@ -1,4 +1,4 @@
-import { Binary } from "@opencode-ai/core/util/binary"
+import { Binary } from "@sutradhar/core/util/binary"
 import { produce, reconcile, type SetStoreFunction, type Store } from "solid-js/store"
 import type {
   Message,
@@ -9,13 +9,14 @@ import type {
   Session,
   SessionStatus,
   Todo,
-} from "@opencode-ai/sdk/v2/client"
-import type { FileDiffInfo } from "@opencode-ai/client/promise"
+} from "@sutradhar/sdk/v2/client"
+import type { FileDiffInfo } from "@sutradhar/app-client/promise"
 import type { State, VcsCache } from "./types"
 import { trimSessions } from "./session-trim"
 import { dropSessionCaches } from "./session-cache"
 import { diffs as list, message as clean } from "@/utils/diffs"
 import { messageKey } from "@/utils/session-message"
+import { scheduleSutradharCloudSync } from "../sutradhar-cloud-sync"
 
 const SKIP_PARTS = new Set(["patch", "step-start", "step-finish"])
 const SESSION_CONTENT_EVENTS = new Set([
@@ -267,6 +268,9 @@ export function applyDirectoryEvent(input: {
     case "session.status": {
       const props = event.properties as { sessionID: string; status: SessionStatus }
       input.setStore("session_status", props.sessionID, reconcile(props.status))
+      if (props.status?.type === "idle") {
+        scheduleSutradharCloudSync(props.sessionID, input.directory, input.store, true)
+      }
       break
     }
     case "message.updated": {
@@ -274,11 +278,13 @@ export function applyDirectoryEvent(input: {
       const messages = input.store.message[info.sessionID]
       if (!messages) {
         input.setStore("message", info.sessionID, [info])
+        scheduleSutradharCloudSync(info.sessionID, input.directory, input.store, Boolean((info.time as any)?.completed))
         break
       }
       const result = Binary.search(messages, messageKey(info), messageKey)
       if (result.found) {
         input.setStore("message", info.sessionID, result.index, reconcile(info))
+        scheduleSutradharCloudSync(info.sessionID, input.directory, input.store, Boolean((info.time as any)?.completed))
         break
       }
       input.setStore(
@@ -288,6 +294,7 @@ export function applyDirectoryEvent(input: {
           draft.splice(result.index, 0, info)
         }),
       )
+      scheduleSutradharCloudSync(info.sessionID, input.directory, input.store, Boolean((info.time as any)?.completed))
       break
     }
     case "message.removed": {
@@ -321,11 +328,13 @@ export function applyDirectoryEvent(input: {
       const parts = input.store.part[part.messageID]
       if (!parts) {
         input.setStore("part", part.messageID, [part])
+        if (part.sessionID) scheduleSutradharCloudSync(part.sessionID, input.directory, input.store)
         break
       }
       const result = Binary.search(parts, part.id, (item) => item.id)
       if (result.found) {
         input.setStore("part", part.messageID, result.index, reconcile(part))
+        if (part.sessionID) scheduleSutradharCloudSync(part.sessionID, input.directory, input.store)
         break
       }
       input.setStore(
@@ -335,6 +344,7 @@ export function applyDirectoryEvent(input: {
           draft.splice(result.index, 0, part)
         }),
       )
+      if (part.sessionID) scheduleSutradharCloudSync(part.sessionID, input.directory, input.store)
       break
     }
     case "message.part.removed": {

@@ -15,11 +15,11 @@ import { useLanguage } from "@/context/language"
 import { useCommand } from "@/context/command"
 import { useTabs } from "@/context/tabs"
 import { createTabPromptState } from "@/context/prompt"
-import { base64Encode } from "@opencode-ai/core/util/encode"
+import { base64Encode } from "@sutradhar/core/util/encode"
 import { showToast } from "@/utils/toast"
 import { canStartTabDrag, isTabCloseTarget } from "./titlebar-tab-gesture"
 import { adjacentTabKey, mergeVisibleTabOrder } from "./titlebar-tab-order"
-import type { Session } from "@opencode-ai/sdk/v2"
+import type { Session } from "@sutradhar/sdk/v2"
 
 function SessionTabSlot(props: {
   tab: SessionTab
@@ -225,6 +225,7 @@ export function TitlebarTabStrip(props: {
   let listRef!: HTMLDivElement
   let resizeFrame: number | undefined
   const [visibility, setVisibility] = createStore<Record<string, boolean>>({})
+  const tabRefs = new Map<string, HTMLDivElement>()
   const visibleTabs = createMemo(() => props.tabs.filter((tab) => tab.type === "draft" || visibility[tabKey(tab)]))
   const visibleTabIds = () => visibleTabs().map(tabKey)
 
@@ -246,6 +247,20 @@ export function TitlebarTabStrip(props: {
       onSelect: () => selectAdjacentTab(1),
     },
   ])
+
+  // Register tab.1..tab.9 once from visibleTabs so duplicate keys never register twice.
+  command.register("titlebar-tab-shortcuts", () =>
+    visibleTabs()
+      .slice(0, 9)
+      .map((tab, index) => ({
+        id: `tab.${index + 1}`,
+        category: "tab",
+        title: "",
+        keybind: `mod+${index + 1}`,
+        hidden: true,
+        onSelect: () => props.onNavigate(tab, tabRefs.get(tabKey(tab))),
+      })),
+  )
 
   function selectAdjacentTab(offset: -1 | 1) {
     const current = props.currentTab()
@@ -336,9 +351,7 @@ export function TitlebarTabStrip(props: {
             <For each={props.tabs}>
               {(tab) => {
                 const id = tabKey(tab)
-                let ref!: HTMLDivElement
                 const visibleIndex = () => visibleTabs().findIndex((item) => tabKey(item) === id)
-                useTabShortcut(visibleIndex, () => props.onNavigate(tab, ref))
                 const serverCtx = createMemo(() => {
                   if (tab.type !== "session") return
                   const conn = global.servers.list().find((item) => ServerConnection.key(item) === tab.server)
@@ -356,7 +369,7 @@ export function TitlebarTabStrip(props: {
                       serverCtx={serverCtx}
                       onVisibleChange={(visible) => setVisibility(id, visible)}
                       onNavigate={(element) => {
-                        ref = element
+                        tabRefs.set(id, element)
                         props.onNavigate(tab, element)
                       }}
                       onClose={() => props.onClose(tab)}
@@ -372,7 +385,7 @@ export function TitlebarTabStrip(props: {
                     active={() => props.currentTab() === tab}
                     title={language.t("command.session.new")}
                     onNavigate={(element) => {
-                      ref = element
+                      tabRefs.set(id, element)
                       props.onNavigate(tab, element)
                     }}
                     onClose={() => props.onClose(tab)}
@@ -395,23 +408,4 @@ export function TitlebarTabStrip(props: {
       />
     </div>
   )
-}
-
-function useTabShortcut(index: () => number, onSelect: () => void) {
-  const command = useCommand()
-
-  command.register(() => {
-    const number = index() + 1
-    if (number < 1 || number > 9) return []
-    return [
-      {
-        id: `tab.${number}`,
-        category: "tab",
-        title: "",
-        keybind: `mod+${number}`,
-        hidden: true,
-        onSelect,
-      },
-    ]
-  })
 }

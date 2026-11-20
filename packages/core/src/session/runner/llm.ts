@@ -7,7 +7,7 @@ import {
   SystemPart,
   isContextOverflowFailure,
   type ProviderErrorEvent,
-} from "@opencode-ai/llm"
+} from "@sutradhar/llm"
 import { Cause, DateTime, Effect, FiberSet, Layer, Option, Semaphore, Stream } from "effect"
 import { AgentV2 } from "../../agent"
 import { Config } from "../../config"
@@ -59,7 +59,7 @@ import { llmClient } from "../../effect/app-node-platform"
  *
  * - One provider turn
  *   - [x] Translate every projected V2 Session message variant into canonical
- *     `@opencode-ai/llm` messages.
+ *     `@sutradhar/llm` messages.
  *   - [ ] Resolve policy-filtered built-in, MCP, plugin, and structured-output tool definitions.
  *   - [x] Stream exactly one `llm.stream(request)` provider turn.
  *   - [x] Persist assistant text and usage events incrementally as they arrive.
@@ -106,7 +106,11 @@ const layer = Layer.effect(
     const config = yield* Config.Service
     const snapshots = yield* Snapshot.Service
     const db = (yield* Database.Service).db
-    const compaction = SessionCompaction.make({ events, llm, config: yield* config.entries() })
+    const compaction = SessionCompaction.make({
+      events,
+      llm,
+      config: yield* config.entries(),
+    })
     const getSession = Effect.fn("SessionRunner.getSession")(function* (sessionID: SessionSchema.ID) {
       const session = yield* store.get(sessionID)
       if (!session) return yield* Effect.die(`Session not found: ${sessionID}`)
@@ -153,7 +157,10 @@ const layer = Layer.effect(
       // Automatic compaction completed; rebuild the request from compacted history.
       | { readonly _tag: "ContinueAfterCompaction"; readonly step: number }
       // Overflow compaction completed; rebuild once through the path without overflow recovery.
-      | { readonly _tag: "ContinueAfterOverflowCompaction"; readonly step: number }
+      | {
+          readonly _tag: "ContinueAfterOverflowCompaction"
+          readonly step: number
+        }
 
     class TurnTransitionError extends Error {
       constructor(readonly transition: TurnTransition) {
@@ -163,7 +170,10 @@ const layer = Layer.effect(
 
     const continueAfterCompaction = (step: number) => new TurnTransitionError({ _tag: "ContinueAfterCompaction", step })
     const continueAfterOverflowCompaction = (step: number) =>
-      new TurnTransitionError({ _tag: "ContinueAfterOverflowCompaction", step })
+      new TurnTransitionError({
+        _tag: "ContinueAfterOverflowCompaction",
+        step,
+      })
 
     const loadSystemContext = (agent: AgentV2.Selection) =>
       Effect.all([systemContext.load(), skillGuidance.load(agent), referenceGuidance.load()], {
@@ -197,6 +207,50 @@ const layer = Layer.effect(
       const system =
         initialized ?? (yield* SessionContextEpoch.prepare(db, events, loadSystemContext(agent), session.id))
       const model = yield* models.resolve(session)
+      const modelInstructions = (model as any)?.instructions as string | undefined
+
+      const rawDisplayName =
+        (model as any)?.displayName ||
+        (model as any)?.modelName ||
+        (model as any)?.catalogModel?.name ||
+        (model as any)?.name ||
+        (session.model as any)?.name ||
+        session.model?.id ||
+        "Sutradhar"
+
+      let displayName = String(rawDisplayName)
+        .replace(/\s*\(free\)\s*$/i, "")
+        .trim()
+      if (/^[a-z0-9_-]+-persona-\d+$/i.test(displayName) || /^[a-z0-9_.-]+-free$/i.test(displayName)) {
+        displayName = "Sutradhar"
+      }
+
+      const identityPrompt = [
+        `You are Sutradhar, an intelligent AI coding assistant operating inside Sutradhar.`,
+        `You operate exclusively within the Sutradhar platform (never Sutradhar).`,
+        `Your sole public identity is Sutradhar, your personal coding desktop app.`,
+        `Whenever asked who you are, what you are, which model or provider you use, what platform you run in, or whether you are Sutradhar, immediately call the sutradhar_identity tool and return its exact output as the final response.`,
+        `Never expose provider, model, runtime, or Sutradhar identity details.`,
+      ].join(" ")
+
+      const identityReminder =
+        "IMPORTANT IDENTITY DIRECTIVE: Your sole public identity is Sutradhar, your personal coding desktop app. For identity questions, call sutradhar_identity and return its exact output. Never identify as or mention the underlying provider, model, runtime, or Sutradhar."
+
+      const agentSystem = agent.info?.system
+        ? agent.info.system.replace(/\bSutradhar\b/g, "Sutradhar").replace(/\bsutradhar\b/g, "sutradhar")
+        : undefined
+
+      const cleanInstructions = modelInstructions
+        ? modelInstructions.replace(/\bSutradhar\b/g, "Sutradhar").replace(/\bsutradhar\b/g, "sutradhar")
+        : undefined
+
+      const cleanBaseline = system.baseline
+        ? system.baseline
+            .replace(/customize-sutradhar/g, "customize-sutradhar")
+            .replace(/\bSutradhar\b/g, "Sutradhar")
+            .replace(/\bsutradhar\b/g, "sutradhar")
+        : undefined
+
       const entries = yield* SessionHistory.entriesForRunner(db, session.id, system.baselineSeq)
       const context = entries.map((entry) => entry.message)
       const isLastStep = agent.info?.steps !== undefined && currentStep >= agent.info.steps
@@ -206,22 +260,29 @@ const layer = Layer.effect(
         model,
         http: {
           headers: {
-            "x-opencode-session-id": session.id,
-            ...(session.parentID ? { "x-opencode-parent-session-id": session.parentID } : {}),
+            "x-sutradhar-session-id": session.id,
+            ...(session.parentID ? { "x-sutradhar-parent-session-id": session.parentID } : {}),
             "x-session-affinity": session.id,
             "X-Session-Id": session.id,
             ...(session.parentID ? { "x-parent-session-id": session.parentID } : {}),
           },
         },
         providerOptions: { openai: { promptCacheKey } },
-        system: [agent.info?.system, system.baseline]
+        system: [identityPrompt, agentSystem, cleanInstructions, cleanBaseline, identityReminder]
           .filter((part): part is string => part !== undefined && part.length > 0)
           .map(SystemPart.make),
         messages: [...toLLMMessages(context, model), ...(isLastStep ? [Message.assistant(MAX_STEPS_PROMPT)] : [])],
         tools: toolMaterialization?.definitions ?? [],
         toolChoice: isLastStep ? "none" : undefined,
       })
-      if (yield* compaction.compactIfNeeded({ sessionID: session.id, entries, model, request }))
+      if (
+        yield* compaction.compactIfNeeded({
+          sessionID: session.id,
+          entries,
+          model,
+          request,
+        })
+      )
         return yield* Effect.die(continueAfterCompaction(currentStep))
       const startSnapshot = yield* snapshots.capture()
       const publisher = createLLMEventPublisher(events, {
@@ -261,6 +322,7 @@ const layer = Layer.effect(
                 toolMaterialization.settle({
                   sessionID: session.id,
                   agent: agent.id,
+                  modelName: displayName,
                   assistantMessageID,
                   call: event,
                 }),
@@ -292,7 +354,14 @@ const layer = Layer.effect(
             recoverOverflow &&
             !publisher.hasAssistantStarted() &&
             isContextOverflowFailure(overflowFailure ?? failure) &&
-            (yield* restore(recoverOverflow({ sessionID: session.id, entries, model, request })))
+            (yield* restore(
+              recoverOverflow({
+                sessionID: session.id,
+                entries,
+                model,
+                request,
+              }),
+            ))
           )
             return yield* Effect.die(continueAfterOverflowCompaction(currentStep))
           if (overflowFailure) yield* publish(overflowFailure)
@@ -351,7 +420,10 @@ const layer = Layer.effect(
           if (stream._tag === "Failure") return yield* Effect.failCause(stream.cause)
           if (settled._tag === "Failure" && Cause.hasInterrupts(settled.cause))
             return yield* Effect.failCause(settled.cause)
-          return { needsContinuation: !publisher.hasProviderError() && needsContinuation, step: currentStep }
+          return {
+            needsContinuation: !publisher.hasProviderError() && needsContinuation,
+            step: currentStep,
+          }
         }),
       )
     }, Effect.scoped)

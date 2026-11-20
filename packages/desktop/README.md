@@ -1,6 +1,6 @@
-# OpenCode Desktop
+# Sutradhar Desktop
 
-The OpenCode Desktop app, built with Electron.
+The Sutradhar Desktop app, built with Electron.
 
 ## Development
 

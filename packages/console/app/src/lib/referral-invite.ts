@@ -1,5 +1,5 @@
-import { Actor } from "@opencode-ai/console-core/actor.js"
-import { Referral } from "@opencode-ai/console-core/referral.js"
+import { Actor } from "@sutradhar/console-core/actor.js"
+import { Referral } from "@sutradhar/console-core/referral.js"
 import { getRequestEvent } from "solid-js/web"
 
 const REFERRAL_COOKIE = "oc_referral"

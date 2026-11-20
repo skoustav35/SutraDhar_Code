@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import type { Project, Session } from "@opencode-ai/sdk/v2/client"
-import { base64Encode } from "@opencode-ai/core/util/encode"
+import type { Project, Session } from "@sutradhar/sdk/v2/client"
+import { base64Encode } from "@sutradhar/core/util/encode"
 import { QueryClient } from "@tanstack/solid-query"
 import {
   createHomeSessionIndexCache,

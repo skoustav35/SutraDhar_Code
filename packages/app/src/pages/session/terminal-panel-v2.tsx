@@ -7,12 +7,12 @@ import { isSortable } from "@dnd-kit/solid/sortable"
 import { Accessibility, AutoScroller, Feedback, PointerActivationConstraints } from "@dnd-kit/dom"
 import { RestrictToHorizontalAxis } from "@dnd-kit/abstract/modifiers"
 import { RestrictToElement } from "@dnd-kit/dom/modifiers"
-import { Tabs } from "@opencode-ai/ui/tabs"
-import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
-import { IconButton } from "@opencode-ai/ui/icon-button"
-import { TooltipKeybind } from "@opencode-ai/ui/tooltip"
-import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
-import { KeybindV2 } from "@opencode-ai/ui/v2/keybind-v2"
+import { Tabs } from "@sutradhar/ui/tabs"
+import { ResizeHandle } from "@sutradhar/ui/resize-handle"
+import { IconButton } from "@sutradhar/ui/icon-button"
+import { TooltipKeybind } from "@sutradhar/ui/tooltip"
+import { TooltipV2 } from "@sutradhar/ui/v2/tooltip-v2"
+import { KeybindV2 } from "@sutradhar/ui/v2/keybind-v2"
 
 import { SortableTerminalTabV2 } from "@/components/session/session-sortable-terminal-tab-v2"
 import { Terminal } from "@/components/terminal"
@@ -27,7 +27,7 @@ import { createSizing, focusTerminalById } from "@/pages/session/helpers"
 import { getTerminalHandoff, setTerminalHandoff } from "@/pages/session/handoff"
 import { useSessionLayout } from "@/pages/session/session-layout"
 
-export function TerminalPanelV2(props: { stacked?: boolean } = {}) {
+export function TerminalPanelV2(props: { stacked?: boolean; embedded?: boolean } = {}) {
   const layout = useLayout()
   const terminal = useTerminal()
   const sdk = useSDK()
@@ -174,10 +174,10 @@ export function TerminalPanelV2(props: { stacked?: boolean } = {}) {
       inert={!opened()}
       class="relative shrink-0 overflow-hidden bg-v2-background-bg-base"
       classList={{
-        "w-full": !isDesktop() || stacked(),
+        "w-full": !isDesktop() || stacked() || Boolean(props.embedded),
         "min-w-0 h-full flex-1": isDesktop() && opened() && !stacked(),
-        "w-0 h-full pointer-events-none": isDesktop() && !opened(),
-        "rounded-[10px] shadow-[var(--v2-elevation-raised)]": isDesktop() && newLayout(),
+        "w-0 h-full pointer-events-none": isDesktop() && !opened() && !props.embedded,
+        "rounded-[10px] shadow-[var(--v2-elevation-raised)]": isDesktop() && newLayout() && !props.embedded,
         "transition-[height] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[height] motion-reduce:transition-none":
           !isDesktop() && !size.active(),
       }}
@@ -203,9 +203,9 @@ export function TerminalPanelV2(props: { stacked?: boolean } = {}) {
       <div
         class="absolute inset-0 flex flex-col overflow-hidden"
         classList={{
-          "border-t border-border-weak-base": opened() && !isDesktop(),
-          "border-t border-border-weaker-base": opened() && stacked() && !newLayout(),
-          "border-l border-border-weaker-base": opened() && isDesktop() && !newLayout(),
+          "border-t border-border-weak-base": opened() && !isDesktop() && !props.embedded,
+          "border-t border-border-weaker-base": opened() && stacked() && !newLayout() && !props.embedded,
+          "border-l border-border-weaker-base": opened() && isDesktop() && !newLayout() && !props.embedded,
           "pointer-events-none": !opened(),
         }}
         style={{ height: contentHeight() }}
@@ -260,7 +260,7 @@ export function TerminalPanelV2(props: { stacked?: boolean } = {}) {
                 variant={newLayout() ? "normal" : "alt"}
                 value={terminal.active()}
                 onChange={(id) => terminal.open(id)}
-                class={newLayout() ? "!h-[52px] !flex-none" : "!h-auto !flex-none"}
+                class={props.embedded ? "!h-9 !flex-none" : newLayout() ? "!h-[52px] !flex-none" : "!h-auto !flex-none"}
               >
                 <Tabs.List
                   ref={tabList}

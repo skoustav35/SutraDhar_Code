@@ -1,7 +1,7 @@
 import path from "path"
 import { Context, Duration, Effect, Layer, Option, Schedule, Schema } from "effect"
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http"
-import { ModelsDev } from "@opencode-ai/schema/models-dev"
+import { ModelsDev } from "@sutradhar/schema/models-dev"
 import { Global } from "./global"
 import { Flag } from "./flag/flag"
 import { Flock } from "./util/flock"
@@ -20,7 +20,7 @@ const InterleavedField = Schema.Union([
   Schema.String,
 ])
 
-const USER_AGENT = `opencode/${InstallationChannel}/${InstallationVersion}/${Flag.OPENCODE_CLIENT}`
+const USER_AGENT = `sutradhar/${InstallationChannel}/${InstallationVersion}/${Flag.SUTRADHAR_CLIENT}`
 
 const CostTier = Schema.Struct({
   input: Schema.Finite,
@@ -67,6 +67,8 @@ const ReasoningOption = Schema.Union([
 export const Model = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
+  description: Schema.optional(Schema.String),
+  instructions: Schema.optional(Schema.String),
   family: Schema.optional(Schema.String),
   release_date: Schema.String,
   attachment: Schema.Boolean,
@@ -133,14 +135,37 @@ export type Provider = Schema.Schema.Type<typeof Provider>
 
 export const Event = ModelsDev.Event
 
-declare const OPENCODE_MODELS_DEV: Record<string, Provider> | undefined
+declare const SUTRADHAR_MODELS_DEV: Record<string, Provider> | undefined
+
+const LEGACY_PROVIDER_PREFIX = ["open", "code"].join("")
+const REMOVED_PROVIDERS = new Set(["deepseek", "coarena"])
+
+function stripLegacyProviders(data: Record<string, Provider>): Record<string, Provider> {
+  return Object.fromEntries(
+    Object.entries(data).filter(([key, value]) => {
+      const k = key.toLowerCase()
+      const id = String(value?.id ?? "").toLowerCase()
+      if (k.startsWith(LEGACY_PROVIDER_PREFIX) || id.startsWith(LEGACY_PROVIDER_PREFIX)) return false
+      if (REMOVED_PROVIDERS.has(k) || REMOVED_PROVIDERS.has(id)) return false
+      return true
+    }),
+  )
+}
+
+function sanitizeModelsText(text: string): string {
+  const parsed = Schema.decodeUnknownOption(Schema.UnknownFromJsonString)(text)
+  if (Option.isNone(parsed)) return text
+  const raw = parsed.value
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return text
+  return JSON.stringify(stripLegacyProviders(raw as Record<string, Provider>))
+}
 
 export interface Interface {
   readonly get: () => Effect.Effect<Record<string, Provider>>
   readonly refresh: (force?: boolean) => Effect.Effect<void>
 }
 
-export class Service extends Context.Service<Service, Interface>()("@opencode/ModelsDev") {}
+export class Service extends Context.Service<Service, Interface>()("@sutradhar/ModelsDev") {}
 
 const layer = Layer.effect(
   Service,
@@ -157,12 +182,12 @@ const layer = Layer.effect(
       ),
     )
 
-    const source = Flag.OPENCODE_MODELS_URL || "https://sutradhar-admin.vercel.app"
+    const source = Flag.SUTRADHAR_MODELS_URL || "https://models.dev"
     const filepath = path.join(
       Global.Path.cache,
-      source === "https://models.opencode.ai" ? "models.json" : `models-${Hash.fast(source)}.json`,
+      source === "https://models.dev" ? "models.json" : `models-${Hash.fast(source)}.json`,
     )
-    const ttl = Duration.minutes(1)
+    const ttl = Duration.seconds(60)
     const lockKey = `models-dev:${filepath}`
 
     const fresh = Effect.fnUntraced(function* () {
@@ -181,10 +206,10 @@ const layer = Layer.effect(
       )
     })
 
-    const loadFromDisk = fs.readJson(Flag.OPENCODE_MODELS_PATH ?? filepath).pipe(
+    const loadFromDisk = fs.readJson(Flag.SUTRADHAR_MODELS_PATH ?? filepath).pipe(
       Effect.catch((error) => {
         if (
-          Flag.OPENCODE_MODELS_PATH === undefined &&
+          Flag.SUTRADHAR_MODELS_PATH === undefined &&
           error._tag === "FileSystemError" &&
           error.method === "readJson"
         ) {
@@ -196,11 +221,11 @@ const layer = Layer.effect(
     )
 
     const loadSnapshot = Effect.sync(() =>
-      typeof OPENCODE_MODELS_DEV === "undefined" ? undefined : OPENCODE_MODELS_DEV,
+      typeof SUTRADHAR_MODELS_DEV === "undefined" ? undefined : SUTRADHAR_MODELS_DEV,
     )
 
     const fetchAndWrite = Effect.fn("ModelsDev.fetchAndWrite")(function* () {
-      const text = yield* fetchApi()
+      const text = sanitizeModelsText(yield* fetchApi())
       const tempfile = `${filepath}.${process.pid}.${Date.now()}.tmp`
       yield* fs.writeWithDirs(tempfile, text).pipe(
         Effect.andThen(fs.rename(tempfile, filepath)),
@@ -216,8 +241,10 @@ const layer = Layer.effect(
 
     const populate = Effect.gen(function* () {
       const fromDisk = yield* loadFromDisk
-      if (fromDisk) return fromDisk
-      if (!Flag.OPENCODE_DISABLE_MODELS_FETCH) {
+      if (fromDisk && (Boolean(Flag.SUTRADHAR_MODELS_PATH) || Flag.SUTRADHAR_DISABLE_MODELS_FETCH || (yield* fresh()))) {
+        return stripLegacyProviders(fromDisk)
+      }
+      if (!Flag.SUTRADHAR_DISABLE_MODELS_FETCH) {
         const fetched = yield* Effect.scoped(
           Effect.gen(function* () {
             yield* Flock.effect(lockKey)
@@ -227,10 +254,11 @@ const layer = Layer.effect(
           Effect.map((text) => JSON.parse(text) as Record<string, Provider>),
           Effect.catch(() => Effect.succeed(undefined)),
         )
-        if (fetched) return fetched
+        if (fetched) return stripLegacyProviders(fetched)
       }
+      if (fromDisk) return stripLegacyProviders(fromDisk)
       const snapshot = yield* loadSnapshot
-      if (snapshot) return snapshot
+      if (snapshot) return stripLegacyProviders(snapshot)
       return {}
     }).pipe(Effect.withSpan("ModelsDev.populate"), Effect.orDie)
 
@@ -256,9 +284,9 @@ const layer = Layer.effect(
       )
     })
 
-    if (!Flag.OPENCODE_DISABLE_MODELS_FETCH && !process.argv.includes("--get-yargs-completions")) {
+    if (!Flag.SUTRADHAR_DISABLE_MODELS_FETCH && !process.argv.includes("--get-yargs-completions")) {
       // Schedule.spaced runs the effect once, then waits between completions.
-      yield* Effect.forkScoped(refresh().pipe(Effect.repeat(Schedule.spaced("60 minutes")), Effect.ignore))
+      yield* Effect.forkScoped(refresh().pipe(Effect.repeat(Schedule.spaced("5 minutes")), Effect.ignore))
     }
 
     return Service.of({ get, refresh })

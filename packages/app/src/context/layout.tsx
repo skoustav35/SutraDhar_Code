@@ -1,13 +1,13 @@
 import { createStore, produce, reconcile } from "solid-js/store"
 import { batch, createEffect, createMemo, onCleanup, onMount, type Accessor } from "solid-js"
 import { useLocation } from "@solidjs/router"
-import { createSimpleContext } from "@opencode-ai/ui/context"
+import { createSimpleContext } from "@sutradhar/ui/context"
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { useServerSync } from "./server-sync"
 import { useServerSDK } from "./server-sdk"
 import { RECENTLY_CLOSED_DISPLAY_LIMIT, ServerConnection, useServer } from "./server"
 import { usePlatform } from "./platform"
-import { Project } from "@opencode-ai/sdk/v2"
+import { Project } from "@sutradhar/sdk/v2"
 import { normalizeProjectInfo } from "./global-sync/utils"
 import { Persist, persisted, removePersisted } from "@/utils/persist"
 import { pathKey } from "@/utils/path-key"
@@ -15,7 +15,7 @@ import { decode64 } from "@/utils/base64"
 import { same } from "@/utils/same"
 import { createScrollPersistence, type SessionScroll } from "./layout-scroll"
 import { createPathHelpers } from "./file/path"
-import type { ProjectAvatarVariant } from "@opencode-ai/ui/v2/project-avatar-v2"
+import type { ProjectAvatarVariant } from "@sutradhar/ui/v2/project-avatar-v2"
 import { migrateLegacySessionStateKeys, ServerScope, SessionStateKey } from "@/utils/server-scope"
 import { createSessionKeyReader, ensureSessionKey, pruneSessionKeys } from "./layout-helpers"
 import { requireServerKey } from "@/utils/session-route"
@@ -32,6 +32,12 @@ const DEFAULT_FILE_TREE_WIDTH = 200
 const DEFAULT_SESSION_WIDTH = 600
 const DEFAULT_TERMINAL_HEIGHT = 280
 const DEFAULT_REVIEW_PANEL_OPENED = false
+const DEFAULT_IDE_EXPLORER_WIDTH = 260
+const DEFAULT_IDE_AGENT_WIDTH = 420
+const DEFAULT_IDE_BOTTOM_HEIGHT = 260
+export type AppMode = "chat" | "agent" | "ide"
+export type IdeExplorerTab = "files" | "changes"
+export type IdeBottomTab = "terminal" | "diffs"
 export type AvatarColorKey = (typeof AVATAR_COLOR_KEYS)[number]
 
 export function getAvatarColors(key?: string) {
@@ -247,12 +253,37 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         return next
       })()
 
+      const validMode = value.appMode === "chat" || value.appMode === "agent" || value.appMode === "ide"
+      const migratedAppMode = validMode ? value.appMode : "agent"
+      const ideRecord = isRecord(value.ide) ? value.ide : undefined
+      const migratedIde = ideRecord
+        ? {
+            explorerWidth:
+              typeof ideRecord.explorerWidth === "number" ? ideRecord.explorerWidth : DEFAULT_IDE_EXPLORER_WIDTH,
+            agentWidth: typeof ideRecord.agentWidth === "number" ? ideRecord.agentWidth : DEFAULT_IDE_AGENT_WIDTH,
+            bottomHeight:
+              typeof ideRecord.bottomHeight === "number" ? ideRecord.bottomHeight : DEFAULT_IDE_BOTTOM_HEIGHT,
+            explorerTab: ideRecord.explorerTab === "changes" ? "changes" : "files",
+            bottomTab: ideRecord.bottomTab === "diffs" ? "diffs" : "terminal",
+            bottomOpened: typeof ideRecord.bottomOpened === "boolean" ? ideRecord.bottomOpened : true,
+          }
+        : {
+            explorerWidth: DEFAULT_IDE_EXPLORER_WIDTH,
+            agentWidth: DEFAULT_IDE_AGENT_WIDTH,
+            bottomHeight: DEFAULT_IDE_BOTTOM_HEIGHT,
+            explorerTab: "files" as IdeExplorerTab,
+            bottomTab: "terminal" as IdeBottomTab,
+            bottomOpened: true,
+          }
+
       if (
         migratedSidebar === sidebar &&
         migratedReview === review &&
         migratedFileTree === fileTree &&
         migratedSessionTabs === value.sessionTabs &&
-        sessionView === value.sessionView
+        sessionView === value.sessionView &&
+        validMode &&
+        Boolean(ideRecord)
       ) {
         return value
       }
@@ -264,6 +295,8 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         fileTree: migratedFileTree,
         sessionTabs: migratedSessionTabs,
         sessionView,
+        appMode: migratedAppMode,
+        ide: migratedIde,
       }
     }
 
@@ -303,6 +336,15 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         },
         home: {
           selection: { server: server.key } as HomeProjectSelection,
+        },
+        appMode: "agent" as AppMode,
+        ide: {
+          explorerWidth: DEFAULT_IDE_EXPLORER_WIDTH,
+          agentWidth: DEFAULT_IDE_AGENT_WIDTH,
+          bottomHeight: DEFAULT_IDE_BOTTOM_HEIGHT,
+          explorerTab: "files" as IdeExplorerTab,
+          bottomTab: "terminal" as IdeBottomTab,
+          bottomOpened: true,
         },
       }),
     )
@@ -614,6 +656,129 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
     return {
       route,
       ready,
+      appMode: {
+        current: createMemo<AppMode>(() => store.appMode ?? "agent"),
+        isChat: createMemo(() => (store.appMode ?? "agent") === "chat"),
+        isAgent: createMemo(() => (store.appMode ?? "agent") === "agent"),
+        isIde: createMemo(() => (store.appMode ?? "agent") === "ide"),
+        set(mode: AppMode) {
+          setStore("appMode", mode)
+          if (mode === "ide") setStore("sidebar", "opened", false)
+        },
+      },
+      ide: {
+        explorerWidth: createMemo(() => store.ide?.explorerWidth ?? DEFAULT_IDE_EXPLORER_WIDTH),
+        resizeExplorer(width: number) {
+          if (!store.ide) {
+            setStore("ide", {
+              explorerWidth: width,
+              agentWidth: DEFAULT_IDE_AGENT_WIDTH,
+              bottomHeight: DEFAULT_IDE_BOTTOM_HEIGHT,
+              explorerTab: "files",
+              bottomTab: "terminal",
+              bottomOpened: true,
+            })
+            return
+          }
+          setStore("ide", "explorerWidth", width)
+        },
+        agentWidth: createMemo(() => store.ide?.agentWidth ?? DEFAULT_IDE_AGENT_WIDTH),
+        resizeAgent(width: number) {
+          if (!store.ide) {
+            setStore("ide", {
+              explorerWidth: DEFAULT_IDE_EXPLORER_WIDTH,
+              agentWidth: width,
+              bottomHeight: DEFAULT_IDE_BOTTOM_HEIGHT,
+              explorerTab: "files",
+              bottomTab: "terminal",
+              bottomOpened: true,
+            })
+            return
+          }
+          setStore("ide", "agentWidth", width)
+        },
+        bottomHeight: createMemo(() => store.ide?.bottomHeight ?? DEFAULT_IDE_BOTTOM_HEIGHT),
+        resizeBottom(height: number) {
+          if (!store.ide) {
+            setStore("ide", {
+              explorerWidth: DEFAULT_IDE_EXPLORER_WIDTH,
+              agentWidth: DEFAULT_IDE_AGENT_WIDTH,
+              bottomHeight: height,
+              explorerTab: "files",
+              bottomTab: "terminal",
+              bottomOpened: true,
+            })
+            return
+          }
+          setStore("ide", "bottomHeight", height)
+        },
+        explorerTab: createMemo<IdeExplorerTab>(() => store.ide?.explorerTab ?? "files"),
+        setExplorerTab(tab: IdeExplorerTab) {
+          if (!store.ide) {
+            setStore("ide", {
+              explorerWidth: DEFAULT_IDE_EXPLORER_WIDTH,
+              agentWidth: DEFAULT_IDE_AGENT_WIDTH,
+              bottomHeight: DEFAULT_IDE_BOTTOM_HEIGHT,
+              explorerTab: tab,
+              bottomTab: "terminal",
+              bottomOpened: true,
+            })
+            return
+          }
+          setStore("ide", "explorerTab", tab)
+        },
+        bottomTab: createMemo<IdeBottomTab>(() => store.ide?.bottomTab ?? "terminal"),
+        setBottomTab(tab: IdeBottomTab) {
+          if (!store.ide) {
+            setStore("ide", {
+              explorerWidth: DEFAULT_IDE_EXPLORER_WIDTH,
+              agentWidth: DEFAULT_IDE_AGENT_WIDTH,
+              bottomHeight: DEFAULT_IDE_BOTTOM_HEIGHT,
+              explorerTab: "files",
+              bottomTab: tab,
+              bottomOpened: true,
+            })
+            return
+          }
+          batch(() => {
+            setStore("ide", "bottomTab", tab)
+            setStore("ide", "bottomOpened", true)
+          })
+        },
+        bottomOpened: createMemo(() => store.ide?.bottomOpened ?? true),
+        openBottom() {
+          if (!store.ide) {
+            setStore("ide", {
+              explorerWidth: DEFAULT_IDE_EXPLORER_WIDTH,
+              agentWidth: DEFAULT_IDE_AGENT_WIDTH,
+              bottomHeight: DEFAULT_IDE_BOTTOM_HEIGHT,
+              explorerTab: "files",
+              bottomTab: "terminal",
+              bottomOpened: true,
+            })
+            return
+          }
+          setStore("ide", "bottomOpened", true)
+        },
+        closeBottom() {
+          if (!store.ide) return
+          setStore("ide", "bottomOpened", false)
+        },
+        toggleBottom() {
+          if (!store.ide) {
+            setStore("ide", {
+              explorerWidth: DEFAULT_IDE_EXPLORER_WIDTH,
+              agentWidth: DEFAULT_IDE_AGENT_WIDTH,
+              bottomHeight: DEFAULT_IDE_BOTTOM_HEIGHT,
+              explorerTab: "files",
+              bottomTab: "terminal",
+              bottomOpened: false,
+            })
+            return
+          }
+          setStore("ide", "bottomOpened", (open) => !open)
+        },
+      },
       home: {
         selection: createMemo(() => store.home.selection),
         setSelection(selection: HomeProjectSelection) {

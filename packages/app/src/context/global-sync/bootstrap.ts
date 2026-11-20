@@ -1,6 +1,6 @@
 import type {
   Config,
-  OpencodeClient,
+  SutradharClient,
   Path,
   PermissionRequest,
   Project,
@@ -8,7 +8,7 @@ import type {
   QuestionRequest,
   ReferenceInfo,
   Session,
-} from "@opencode-ai/sdk/v2/client"
+} from "@sutradhar/sdk/v2/client"
 import type {
   AgentListInput,
   AgentListOutput,
@@ -22,10 +22,10 @@ import type {
   ReferenceListInput,
   ReferenceListOutput,
   SessionApi,
-} from "@opencode-ai/client/promise"
+} from "@sutradhar/app-client/promise"
 import { showToast } from "@/utils/toast"
-import { getFilename } from "@opencode-ai/core/util/path"
-import { retry } from "@opencode-ai/core/util/retry"
+import { getFilename } from "@sutradhar/core/util/path"
+import { retry } from "@sutradhar/core/util/retry"
 import { batch } from "solid-js"
 import { produce, reconcile, type SetStoreFunction, type Store } from "solid-js/store"
 import type { State, VcsCache } from "./types"
@@ -40,7 +40,7 @@ import {
 import { formatServerError } from "@/utils/server-errors"
 import { QueryClient, queryOptions } from "@tanstack/solid-query"
 import { loadMcpQuery, loadMcpResourcesQuery } from "../server-sync"
-import { NormalizedProviderListResponse } from "@opencode-ai/session-ui/context"
+import { NormalizedProviderListResponse } from "@sutradhar/session-ui/context"
 import { ScopedKey, type ServerScope } from "@/utils/server-scope"
 import { normalizeSessionInfo } from "@/utils/session"
 import type { ServerProtocol } from "@/utils/server-protocol"
@@ -105,7 +105,7 @@ function showErrors(input: {
   })
 }
 
-export const loadGlobalConfigQuery = (scope: ServerScope, sdk: OpencodeClient, protocol?: Promise<ServerProtocol>) =>
+export const loadGlobalConfigQuery = (scope: ServerScope, sdk: SutradharClient, protocol?: Promise<ServerProtocol>) =>
   queryOptions({
     queryKey: [scope, "config"],
     queryFn: async () => {
@@ -132,7 +132,7 @@ export const loadProjectsQuery = (scope: ServerScope, api: ProjectApi) =>
         api.list().then((projects) => {
           return projects
             .filter((p) => !!p?.id)
-            .filter((p) => !!p.worktree && !p.worktree.includes("opencode-test"))
+            .filter((p) => !!p.worktree && !p.worktree.includes("sutradhar-test"))
             .map(normalizeProjectInfo)
             .slice()
             .sort((a, b) => cmp(a.id, b.id))
@@ -141,7 +141,7 @@ export const loadProjectsQuery = (scope: ServerScope, api: ProjectApi) =>
   })
 
 export async function bootstrapGlobal(input: {
-  serverSDK: OpencodeClient
+  serverSDK: SutradharClient
   serverAPI: CatalogApi & { readonly project: ProjectApi }
   protocol?: Promise<ServerProtocol>
   scope: ServerScope
@@ -218,29 +218,51 @@ function warmSessions(input: {
   ).then(() => undefined)
 }
 
+function isMissingLocationError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false
+  if ("status" in error && error.status === 404) return true
+  if ("cause" in error && error.cause && typeof error.cause === "object" && "status" in error.cause && error.cause.status === 404) {
+    return true
+  }
+  const text = error instanceof Error ? `${error.name} ${error.message}` : String(error)
+  return (
+    text.includes("failed with 404") ||
+    text.includes("UnexpectedStatus") ||
+    text.includes("LocationNotFound") ||
+    text.includes("ENOENT")
+  )
+}
+
 export const loadProvidersQuery = (
   scope: ServerScope,
   directory: string | null,
   sdk: CatalogApi,
-  legacy?: OpencodeClient,
+  legacy?: SutradharClient,
   protocol?: Promise<ServerProtocol>,
 ) =>
   queryOptions({
     queryKey: [scope, directory, "providers"],
-    queryFn: () =>
-      retry(async () => {
-        if ((await protocol) === "v1" && legacy) {
-          const result = await legacy.provider.list()
-          return normalizeProviderList(result.data!)
-        }
-        const location = directory ? { location: { directory } } : undefined
-        const [providers, models, defaultModel] = await Promise.all([
-          sdk.provider.list(location),
-          sdk.model.list(location),
-          sdk.model.default(location),
-        ])
-        return normalizeProviderList(providers.data, models.data, defaultModel.data)
-      }),
+    queryFn: async () => {
+      try {
+        return await retry(async () => {
+          if ((await protocol) === "v1" && legacy) {
+            const result = await legacy.provider.list()
+            return normalizeProviderList(result.data!)
+          }
+          const location = directory ? { location: { directory } } : undefined
+          const [providers, models, defaultModel] = await Promise.all([
+            sdk.provider.list(location),
+            sdk.model.list(location),
+            sdk.model.default(location).catch(() => ({ data: null })),
+          ])
+          return normalizeProviderList(providers.data, models.data, defaultModel.data)
+        })
+      } catch (err) {
+        // Stale or deleted project directories return 404; fall back to global providers quietly.
+        if (directory && isMissingLocationError(err)) return { all: new Map(), connected: [], default: {} }
+        throw err
+      }
+    },
   })
 
 type AgentListApi = {
@@ -259,7 +281,7 @@ export const loadAgentsQuery = (
   scope: ServerScope,
   directory: string,
   sdk: AgentListApi,
-  legacy?: OpencodeClient,
+  legacy?: SutradharClient,
   protocol?: Promise<ServerProtocol>,
 ) =>
   queryOptions({
@@ -274,7 +296,7 @@ export const loadAgentsQuery = (
 export const loadCommands = (
   directory: string,
   api: CommandListApi,
-  legacy?: OpencodeClient,
+  legacy?: SutradharClient,
   protocol?: Promise<ServerProtocol>,
 ): Promise<CommandInfo[]> =>
   retry(async () => {
@@ -298,7 +320,7 @@ export const loadCommands = (
 export const loadPathQuery = (
   scope: ServerScope,
   directory: string | null,
-  sdk: OpencodeClient,
+  sdk: SutradharClient,
   protocol?: Promise<ServerProtocol>,
 ) =>
   queryOptions<Path>({
@@ -314,7 +336,7 @@ export const loadReferencesQuery = (
   scope: ServerScope,
   directory: string,
   api: ReferenceListApi,
-  legacy?: OpencodeClient,
+  legacy?: SutradharClient,
   protocol?: Promise<ServerProtocol>,
 ) =>
   queryOptions<ReferenceInfo[]>({
@@ -331,7 +353,7 @@ export async function bootstrapDirectory(input: {
   directory: string
   scope: ServerScope
   mcp: boolean
-  sdk: OpencodeClient
+  sdk: SutradharClient
   api: CatalogApi & {
     readonly agent: AgentListApi
     readonly command: CommandListApi
@@ -412,9 +434,12 @@ export async function bootstrapDirectory(input: {
         ),
       !seededProject &&
         (() =>
-          retry(() => input.api.project.current({ location: { directory: input.directory } })).then((project) =>
-            input.setStore("project", project.id),
-          )),
+          retry(() => input.api.project.current({ location: { directory: input.directory } }))
+            .then((project) => input.setStore("project", project.id))
+            .catch((err) => {
+              if (isMissingLocationError(err)) return
+              throw err
+            })),
       !seededPath &&
         (() =>
           input.queryClient
@@ -481,9 +506,12 @@ export async function bootstrapDirectory(input: {
         retry(() =>
           (async () => {
             if ((await input.protocol) === "v1") return (await input.sdk.question.list()).data ?? []
-            return input.api.question.request
-              .list({ location: { directory: input.directory } })
-              .then((result) => result.data)
+            return input.api.question?.request
+              ? input.api.question.request
+                  .list({ location: { directory: input.directory } })
+                  .then((result) => result.data)
+                  .catch(() => [])
+              : []
           })().then((questions) => {
             const ids = questions.map((question) => question.sessionID)
             const grouped = groupBySession(
@@ -516,39 +544,29 @@ export async function bootstrapDirectory(input: {
       () => Promise.resolve(input.loadSessions(input.directory)),
       input.mcp &&
         (() =>
-          input.queryClient.fetchQuery(
-            loadMcpQuery(input.scope, input.directory, input.api.mcp, input.sdk, input.protocol),
-          )),
+          input.queryClient
+            .fetchQuery(loadMcpQuery(input.scope, input.directory, input.api.mcp, input.sdk, input.protocol))
+            .catch(() => ({}))),
       input.mcp &&
         (() =>
-          input.queryClient.fetchQuery(
-            loadMcpResourcesQuery(input.scope, input.directory, input.api.mcp, input.sdk, input.protocol),
-          )),
+          input.queryClient
+            .fetchQuery(loadMcpResourcesQuery(input.scope, input.directory, input.api.mcp, input.sdk, input.protocol))
+            .catch(() => ({}))),
       () =>
         input.queryClient
           .fetchQuery(loadProvidersQuery(input.scope, input.directory, input.api, input.sdk, input.protocol))
           .catch((err) => {
-            const project = getFilename(input.directory)
-            showToast({
-              variant: "error",
-              title: input.translate("toast.project.reloadFailed.title", { project }),
-              description: formatServerError(err, input.translate),
-            })
+            if (isMissingLocationError(err)) return
+            console.warn("Failed to load providers for " + input.directory, err)
           }),
     ].filter(Boolean) as (() => Promise<any>)[]
 
     await waitForPaint()
-    const slowErrs = errors(await runAll(slow))
+    const slowErrs = errors(await runAll(slow)).filter((err) => !isMissingLocationError(err))
     if (slowErrs.length > 0) {
-      console.error("Failed to finish bootstrap instance", slowErrs[0])
-      const project = getFilename(input.directory)
-      showToast({
-        variant: "error",
-        title: input.translate("toast.project.reloadFailed.title", { project }),
-        description: formatServerError(slowErrs[0], input.translate),
-      })
+      console.warn("Failed to finish background bootstrap items for " + input.directory, slowErrs[0])
     }
 
-    if (loading && slowErrs.length === 0) input.setStore("status", "complete")
+    if (loading) input.setStore("status", "complete")
   })()
 }

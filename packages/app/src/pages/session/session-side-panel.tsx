@@ -1,4 +1,4 @@
-import { For, Match, Show, Switch, createEffect, createMemo, onCleanup, type JSX } from "solid-js"
+import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createMediaQuery } from "@solid-primitives/media"
 import { DragDropProvider as DndKitProvider, PointerSensor } from "@dnd-kit/solid"
@@ -14,19 +14,20 @@ import {
   closestCenter,
   type DragEvent,
 } from "@thisbeyond/solid-dnd"
-import { Tabs } from "@opencode-ai/ui/tabs"
-import { IconButton } from "@opencode-ai/ui/icon-button"
-import { Icon } from "@opencode-ai/ui/icon"
-import { TooltipKeybind } from "@opencode-ai/ui/tooltip"
-import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
-import { Mark } from "@opencode-ai/ui/logo"
-import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
-import { KeybindV2 } from "@opencode-ai/ui/v2/keybind-v2"
-import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
-import type { SnapshotFileDiff, VcsFileDiff } from "@opencode-ai/sdk/v2"
-import type { FileDiffInfo } from "@opencode-ai/client/promise"
+import { Tabs } from "@sutradhar/ui/tabs"
+import { IconButton } from "@sutradhar/ui/icon-button"
+import { Icon } from "@sutradhar/ui/icon"
+import { TooltipKeybind } from "@sutradhar/ui/tooltip"
+import { ResizeHandle } from "@sutradhar/ui/resize-handle"
+import { Mark } from "@sutradhar/ui/logo"
+import { IconButtonV2 } from "@sutradhar/ui/v2/icon-button-v2"
+import { KeybindV2 } from "@sutradhar/ui/v2/keybind-v2"
+import { TooltipV2 } from "@sutradhar/ui/v2/tooltip-v2"
+import { Icon as IconV2 } from "@sutradhar/ui/v2/icon"
+import type { SnapshotFileDiff, VcsFileDiff } from "@sutradhar/sdk/v2"
+import type { FileDiffInfo } from "@sutradhar/app-client/promise"
 import { ConstrainDragYAxis, getDraggableId } from "@/utils/solid-dnd"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { useDialog } from "@sutradhar/ui/context/dialog"
 
 import FileTree from "@/components/file-tree"
 import { normalizeFileTreeV2Path } from "@/components/file-tree-v2-model"
@@ -105,11 +106,23 @@ export function SessionSidePanel(props: {
       }),
   )
   const open = createMemo(() => reviewOpen() || fileOpen())
+  const [contentPresent, setContentPresent] = createSignal(open())
+  createEffect(() => {
+    if (open()) {
+      setContentPresent(true)
+    } else {
+      const timer = setTimeout(() => {
+        if (!open()) setContentPresent(false)
+      }, 300)
+      onCleanup(() => clearTimeout(timer))
+    }
+  })
+
   const fileTreeWidth = createMemo(() => Math.max(FILE_TREE_WIDTH_MIN, layout.fileTree.width()))
   const reviewTab = createMemo(() => isDesktop())
   const panelWidth = createMemo(() => {
-    if (!open()) return "0px"
-    if (reviewOpen()) return "auto"
+    if (!open() && !contentPresent()) return "0px"
+    if (reviewOpen() || contentPresent()) return "auto"
     return `${fileTreeWidth()}px`
   })
   const treeWidth = createMemo(() => (fileOpen() ? `${fileTreeWidth()}px` : "0px"))
@@ -294,6 +307,12 @@ export function SessionSidePanel(props: {
         aria-label={language.t("session.panel.reviewAndFiles")}
         aria-hidden={!open()}
         inert={!open()}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && !e.defaultPrevented) {
+            e.preventDefault()
+            view().reviewPanel.close()
+          }
+        }}
         class="relative min-w-0 flex overflow-hidden"
         classList={{
           "bg-v2-background-bg-base": settings.general.newLayoutDesigns(),
@@ -301,17 +320,19 @@ export function SessionSidePanel(props: {
           "h-full shrink-0": !props.stacked,
           "h-full min-h-0": props.stacked,
           "pointer-events-none": !open(),
-          "transition-[width] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none":
+          "transition-[width] duration-[300ms] ease-[cubic-bezier(0.16,1,0.3,1)] will-change-[width] motion-reduce:transition-none":
             !props.size.active() && !props.reviewSnap,
-          "rounded-[10px] shadow-[var(--v2-elevation-raised)] overflow-hidden": settings.general.newLayoutDesigns(),
-          "flex-1": reviewOpen(),
+          "rounded-[12px] shadow-[var(--v2-elevation-raised)] ring-1 ring-border-weaker-base/40 overflow-hidden": settings.general.newLayoutDesigns(),
+          "flex-1": reviewOpen() || contentPresent(),
         }}
         style={{ width: panelWidth() }}
       >
-        <Show when={open()}>
+        <Show when={contentPresent()}>
           <div
-            class="size-full flex"
+            class="size-full flex transition-opacity duration-200"
             classList={{
+              "opacity-100": open(),
+              "opacity-0": !open(),
               "border-l border-border-weaker-base": !settings.general.newLayoutDesigns(),
             }}
           >
@@ -684,11 +705,30 @@ export function SessionSidePanel(props: {
                             </div>
                           </Tabs.List>
                           <div
-                            class="session-review-v2-open-in-app-slot shrink-0 flex items-center pr-3"
+                            class="session-review-v2-open-in-app-slot shrink-0 flex items-center gap-1.5 pr-2.5"
                             onPointerDown={(event) => event.stopPropagation()}
                             onClick={(event) => event.stopPropagation()}
                           >
                             <OpenInAppV2 directory={projectDirectory} />
+                            <div class="h-3.5 w-px bg-border-weaker-base/60" />
+                            <TooltipV2
+                              value={
+                                <div class="flex items-center gap-1.5">
+                                  <span>{language.t("common.close") || "Close sidebar"}</span>
+                                  <KeybindV2 keys={["Esc"]} variant="neutral" />
+                                </div>
+                              }
+                              placement="bottom"
+                            >
+                              <IconButtonV2
+                                icon={<IconV2 name="xmark-small" />}
+                                variant="ghost-muted"
+                                size="large"
+                                class="!w-7 !h-7 text-text-weaker hover:text-text hover:bg-surface-hover active:scale-90 transition-all duration-150"
+                                onClick={() => view().reviewPanel.close()}
+                                aria-label="Close sidebar"
+                              />
+                            </TooltipV2>
                           </div>
                         </div>
 

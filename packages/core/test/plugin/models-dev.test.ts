@@ -1,18 +1,18 @@
 import path from "path"
 import { describe, expect } from "bun:test"
 import { Effect, Layer } from "effect"
-import { Catalog } from "@opencode-ai/core/catalog"
-import { Integration } from "@opencode-ai/core/integration"
-import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
-import { LayerNode } from "@opencode-ai/core/effect/layer-node"
-import { EventV2 } from "@opencode-ai/core/event"
-import { Flag } from "@opencode-ai/core/flag/flag"
-import { Location } from "@opencode-ai/core/location"
-import { ModelV2 } from "@opencode-ai/core/model"
-import { ModelsDev } from "@opencode-ai/core/models-dev"
-import { ModelsDevPlugin } from "@opencode-ai/core/plugin/models-dev"
-import { ProviderV2 } from "@opencode-ai/core/provider"
-import { AbsolutePath } from "@opencode-ai/core/schema"
+import { Catalog } from "@sutradhar/core/catalog"
+import { Integration } from "@sutradhar/core/integration"
+import { AppNodeBuilder } from "@sutradhar/core/effect/app-node-builder"
+import { LayerNode } from "@sutradhar/core/effect/layer-node"
+import { EventV2 } from "@sutradhar/core/event"
+import { Flag } from "@sutradhar/core/flag/flag"
+import { Location } from "@sutradhar/core/location"
+import { ModelV2 } from "@sutradhar/core/model"
+import { ModelsDev } from "@sutradhar/core/models-dev"
+import { ModelsDevPlugin } from "@sutradhar/core/plugin/models-dev"
+import { ProviderV2 } from "@sutradhar/core/provider"
+import { AbsolutePath } from "@sutradhar/core/schema"
 import { location } from "../fixture/location"
 import { testEffect } from "../lib/effect"
 import { catalogHost, host, integrationHost } from "./host"
@@ -124,15 +124,67 @@ describe("ModelsDevPlugin", () => {
     }),
   )
 
+  it.effect("projects curated aliases with their background model ID", () =>
+    Effect.gen(function* () {
+      const catalog = yield* Catalog.Service
+      const models = ModelsDev.Service.of({
+        get: () =>
+          Effect.succeed({
+            sutradhar: {
+              id: "sutradhar",
+              name: "Sutradhar",
+              env: ["SUTRADHAR_API_KEY"],
+              npm: "@ai-sdk/openai-compatible",
+              api: "https://sutradhar.ai/inference/openai/v1",
+              models: {
+                "deepseek-v4-1-flash-free-persona-927": {
+                  id: "deepseek-v4-1-flash-free-persona-927",
+                  bgModelId: "deepseek-v4.1-flash-free",
+                  upstreamId: "legacy-upstream-id",
+                  name: "GPT 6 Astra",
+                  release_date: "2026-01-01",
+                  attachment: true,
+                  reasoning: true,
+                  temperature: true,
+                  tool_call: true,
+                  cost: { input: 0, output: 0 },
+                  limit: { context: 200_000, output: 32_000 },
+                  provider: {
+                    npm: "@ai-sdk/openai-compatible",
+                    api: "https://sutradhar.ai/inference/openai/v1",
+                  },
+                },
+              },
+            },
+          } as unknown as Record<string, ModelsDev.Provider>),
+        refresh: () => Effect.void,
+      })
+
+      yield* ModelsDevPlugin.effect(
+        host({
+          catalog: catalogHost(catalog),
+          integration: integrationHost(yield* Integration.Service),
+        }),
+      ).pipe(Effect.provideService(ModelsDev.Service, models))
+
+      const model = yield* catalog.model.get(
+        ProviderV2.ID.make("sutradhar"),
+        ModelV2.ID.make("deepseek-v4-1-flash-free-persona-927"),
+      )
+
+      expect(model?.api).toMatchObject({ id: "deepseek-v4.1-flash-free" })
+    }),
+  )
+
   it.effect("registers key methods for providers with environment variables", () =>
     Effect.acquireUseRelease(
       Effect.sync(() => {
         const previous = {
-          path: Flag.OPENCODE_MODELS_PATH,
-          disabled: Flag.OPENCODE_DISABLE_MODELS_FETCH,
+          path: Flag.SUTRADHAR_MODELS_PATH,
+          disabled: Flag.SUTRADHAR_DISABLE_MODELS_FETCH,
         }
-        Flag.OPENCODE_MODELS_PATH = path.join(import.meta.dir, "fixtures", "models-dev.json")
-        Flag.OPENCODE_DISABLE_MODELS_FETCH = true
+        Flag.SUTRADHAR_MODELS_PATH = path.join(import.meta.dir, "fixtures", "models-dev.json")
+        Flag.SUTRADHAR_DISABLE_MODELS_FETCH = true
         return previous
       }),
       () =>
@@ -162,8 +214,8 @@ describe("ModelsDevPlugin", () => {
         }).pipe(Effect.provide(AppNodeBuilder.build(ModelsDev.node))),
       (previous) =>
         Effect.sync(() => {
-          Flag.OPENCODE_MODELS_PATH = previous.path
-          Flag.OPENCODE_DISABLE_MODELS_FETCH = previous.disabled
+          Flag.SUTRADHAR_MODELS_PATH = previous.path
+          Flag.SUTRADHAR_DISABLE_MODELS_FETCH = previous.disabled
         }),
     ),
   )

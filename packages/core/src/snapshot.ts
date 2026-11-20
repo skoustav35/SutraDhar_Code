@@ -81,7 +81,7 @@ export interface Interface {
   readonly checkout: (snapshot: ID) => Effect.Effect<void, Error>
 }
 
-export class Service extends Context.Service<Service, Interface>()("@opencode/v2/Snapshot") {}
+export class Service extends Context.Service<Service, Interface>()("@sutradhar/v2/Snapshot") {}
 
 const layer = Layer.effect(
   Service,
@@ -93,7 +93,7 @@ const layer = Layer.effect(
     const location = yield* Location.Service
     const source = yield* git.repo.discover(location.project.directory)
     const worktree = source
-      ? AbsolutePath.make(yield* fs.realPath(source.worktree).pipe(Effect.orDie))
+      ? AbsolutePath.make(yield* fs.realPath(source.worktree).pipe(Effect.catch(() => Effect.succeed(source.worktree))))
       : location.project.directory
     const gitDirectory = AbsolutePath.make(path.join(global.data, "snapshot", location.project.id, Hash.fast(worktree)))
 

@@ -1,17 +1,17 @@
-import { Binary } from "@opencode-ai/core/util/binary"
-import { retry } from "@opencode-ai/core/util/retry"
-import type { OpenCodeEvent, SessionApi, SessionMessageInfo } from "@opencode-ai/client/promise"
+import { Binary } from "@sutradhar/core/util/binary"
+import { retry } from "@sutradhar/core/util/retry"
+import type { SutradharEvent, SessionApi, SessionMessageInfo } from "@sutradhar/app-client/promise"
 import type {
   Message,
-  OpencodeClient,
+  SutradharClient,
   Part,
   PermissionRequest,
   QuestionRequest,
   Session,
   SessionStatus,
   Todo,
-} from "@opencode-ai/sdk/v2/client"
-import type { FileDiffInfo } from "@opencode-ai/client/promise"
+} from "@sutradhar/sdk/v2/client"
+import type { FileDiffInfo } from "@sutradhar/app-client/promise"
 import { batch } from "solid-js"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { message as cleanMessage } from "@/utils/diffs"
@@ -22,6 +22,7 @@ import { compareMessages, messageKey, normalizeSessionMessages } from "@/utils/s
 import { dropSessionCaches, pickSessionCacheEvictions, SESSION_CACHE_LIMIT } from "./global-sync/session-cache"
 import { createV2SessionReducer, type V2SessionReduction } from "./server-session-v2-reducer"
 import type { ServerApi } from "@/utils/server"
+import { registerSutradharServerSession, scheduleSutradharSessionSync } from "./sutradhar-cloud-sync"
 
 type MessageApi = ServerApi["message"]
 
@@ -186,7 +187,7 @@ function reconcileFetched<T extends { id: string }>(
 type ServerSessionOptions = { retry?: typeof retry; protocol?: Promise<"v1" | "v2"> }
 
 export function createServerSession(
-  client: OpencodeClient,
+  client: SutradharClient,
   sessionApiOrOptions?: SessionApi | ServerSessionOptions,
   messageApi?: MessageApi,
   currentOptions?: ServerSessionOptions,
@@ -728,6 +729,7 @@ export function createServerSession(
       setMeta("complete", sessionID, merged.complete)
       setMeta("at", sessionID, Date.now())
     })
+    scheduleSutradharSessionSync(sessionID, data, false)
   }
 
   const loadMessages = async (sessionID: string, limit: number, before?: string, mode?: "replace" | "prepend") => {
@@ -933,18 +935,21 @@ export function createServerSession(
       .catch(() => {})
   }
 
-  const applyV2 = (event: OpenCodeEvent) => {
+  const applyV2 = (event: SutradharEvent) => {
     if (!("data" in event) || !("sessionID" in event.data) || typeof event.data.sessionID !== "string") return
     const sessionID = event.data.sessionID
     const reduction = v2.reduce(data.session_message[sessionID] ?? [], event)
     if (reduction) {
       projectV2(reduction)
       if (reduction.missing) hydrateV2Message(sessionID, reduction.missing)
+      scheduleSutradharSessionSync(sessionID, data, false)
     }
 
     const info = data.info[sessionID]
-    if (event.type === "session.renamed" && info)
+    if (event.type === "session.renamed" && info) {
       remember({ ...info, title: event.data.title, time: { ...info.time, updated: event.created } })
+      scheduleSutradharSessionSync(sessionID, data, false)
+    }
     if (event.type === "session.moved" && info)
       remember({
         ...info,
@@ -954,8 +959,10 @@ export function createServerSession(
         path: event.data.subpath,
         time: { ...info.time, updated: event.created },
       })
-    if (event.type === "session.usage.updated" && info)
+    if (event.type === "session.usage.updated" && info) {
       remember({ ...info, cost: event.data.cost, tokens: event.data.tokens })
+      scheduleSutradharSessionSync(sessionID, data, false)
+    }
     // if (event.type === "session.archived") {
     //   if (info) remember({ ...info, time: { ...info.time, archived: event.created, updated: event.created } })
     //   evict([sessionID])
@@ -965,8 +972,10 @@ export function createServerSession(
       event.type === "session.execution.succeeded" ||
       event.type === "session.execution.failed" ||
       event.type === "session.execution.interrupted"
-    )
+    ) {
       setData("session_status", sessionID, { type: "idle" })
+      scheduleSutradharSessionSync(sessionID, data, true)
+    }
     if (event.type === "session.retry.scheduled")
       setData("session_status", sessionID, {
         type: "retry",
@@ -1025,6 +1034,9 @@ export function createServerSession(
       case "session.status": {
         const props = event.properties as { sessionID: string; status: SessionStatus }
         setData("session_status", props.sessionID, reconcile(props.status))
+        if (props.status?.type === "idle") {
+          scheduleSutradharSessionSync(props.sessionID, data, true)
+        }
         return
       }
       case "message.updated": {
@@ -1048,6 +1060,7 @@ export function createServerSession(
         const messages = data.message[info.sessionID]
         if (!messages) {
           setData("message", info.sessionID, [info])
+          scheduleSutradharSessionSync(info.sessionID, data, Boolean((info.time as any)?.completed))
           return
         }
         const result = Binary.search(messages, messageKey(info), messageKey)
@@ -1058,6 +1071,7 @@ export function createServerSession(
             next.splice(result.index, 0, info)
             return next
           })
+        scheduleSutradharSessionSync(info.sessionID, data, Boolean((info.time as any)?.completed))
         return
       }
       case "message.removed": {
@@ -1137,6 +1151,7 @@ export function createServerSession(
         const parts = data.part[part.messageID]
         if (!parts) {
           setData("part", part.messageID, [part])
+          if (part.sessionID) scheduleSutradharSessionSync(part.sessionID, data, false)
           return
         }
         const result = Binary.search(parts, part.id, (item) => item.id)
@@ -1147,6 +1162,7 @@ export function createServerSession(
             next.splice(result.index, 0, part)
             return next
           })
+        if (part.sessionID) scheduleSutradharSessionSync(part.sessionID, data, false)
         return
       }
       case "message.part.removed": {
@@ -1228,6 +1244,7 @@ export function createServerSession(
             ;(part[field] as string) = ((part[field] as string | undefined) ?? "") + props.delta
           }),
         )
+        if (props.sessionID) scheduleSutradharSessionSync(props.sessionID, data, false)
         return
       }
       case "permission.asked": {
@@ -1292,6 +1309,8 @@ export function createServerSession(
       }
     }
   }
+
+  registerSutradharServerSession({ data, sync })
 
   return {
     data,

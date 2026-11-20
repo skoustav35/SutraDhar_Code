@@ -9,11 +9,14 @@ interface Info {
 }
 
 export function withTimestampedFallback(info: Info) {
-  return info.title ?? `${info.parentID ? "Child" : "New"} session - ${new Date(info.time.created).toISOString()}`
+  const clean = info.title?.trim()
+  if (clean) return clean
+  return `${info.parentID ? "Child" : "New"} session - ${new Date(info.time.created).toISOString()}`
 }
 
 export function sessionTitle(title?: string) {
-  if (!title) return title
-  const match = title.match(pattern)
-  return match?.[1] ?? title
+  const clean = title?.trim()
+  if (!clean) return undefined
+  const match = clean.match(pattern)
+  return match?.[1] ?? clean
 }

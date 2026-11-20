@@ -1,8 +1,8 @@
-import { SessionV2 } from "@opencode-ai/core/session"
+import { SessionV2 } from "@sutradhar/core/session"
 import { DateTime, Effect, Stream } from "effect"
 import { HttpApiBuilder, HttpApiSchema } from "effect/unstable/httpapi"
 import { Api } from "../api"
-import { SessionsCursor } from "@opencode-ai/protocol/groups/session"
+import { SessionsCursor } from "@sutradhar/protocol/groups/session"
 import {
   ConflictError,
   InvalidCursorError,
@@ -10,8 +10,8 @@ import {
   ServiceUnavailableError,
   SessionNotFoundError,
   UnknownError,
-} from "@opencode-ai/protocol/errors"
-import { AbsolutePath } from "@opencode-ai/core/schema"
+} from "@sutradhar/protocol/errors"
+import { AbsolutePath } from "@sutradhar/core/schema"
 
 const DefaultSessionsLimit = 50
 const DefaultSessionHistoryLimit = 50
@@ -35,10 +35,18 @@ export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handl
             workspaceID: query.workspace,
             limit: ctx.query.limit ?? DefaultSessionsLimit,
           })
-          const first = sessions[0]
-          const last = sessions.at(-1)
+          const normalized = sessions.map((item) => {
+            if (item.title.trim()) return item
+            const prefix = item.parentID ? "Child" : "New"
+            return {
+              ...item,
+              title: `${prefix} session - ${DateTime.toDate(item.time.created).toISOString()}`,
+            }
+          })
+          const first = normalized[0]
+          const last = normalized.at(-1)
           return {
-            data: sessions,
+            data: normalized,
             cursor: {
               previous: first
                 ? SessionsCursor.make({

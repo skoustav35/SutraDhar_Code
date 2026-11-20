@@ -4,10 +4,10 @@ import type {
   ModelListOutput,
   PermissionV2Request,
   ProviderListOutput,
-} from "@opencode-ai/client/promise"
-import type { Agent, PermissionRequest, Project, Provider, ProviderListResponse } from "@opencode-ai/sdk/v2/client"
-import type { Project as CurrentProject } from "@opencode-ai/client/promise"
-import { NormalizedProviderListResponse } from "@opencode-ai/session-ui/context"
+} from "@sutradhar/app-client/promise"
+import type { Agent, PermissionRequest, Project, Provider, ProviderListResponse } from "@sutradhar/sdk/v2/client"
+import type { Project as CurrentProject } from "@sutradhar/app-client/promise"
+import { NormalizedProviderListResponse } from "@sutradhar/session-ui/context"
 export { pathKey as directoryKey, type PathKey as DirectoryKey } from "@/utils/path-key"
 
 export const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
@@ -88,6 +88,10 @@ export function normalizeProviderList(
     const provider = all.get(model.providerID)
     if (!provider || model.status === "deprecated") continue
     const cost = model.cost.find((item) => item.tier === undefined) ?? model.cost[0]
+    const signature = `${model.id} ${model.family ?? ""} ${model.name}`
+    const reasoning =
+      model.variants.length > 0 || /thinking|reason|flash|pro|\br1\b/i.test(signature)
+    const temperature = !/reasoner|\br1\b/i.test(model.id)
     provider.models[model.id] = {
       id: model.id,
       providerID: model.providerID,
@@ -99,8 +103,8 @@ export function normalizeProviderList(
       name: model.name,
       family: model.family,
       capabilities: {
-        temperature: false,
-        reasoning: false,
+        temperature,
+        reasoning,
         attachment: model.capabilities.input.some((item) => item !== "text"),
         toolcall: model.capabilities.tools,
         input: {

@@ -1,11 +1,11 @@
-import { getDirectory, getFilename } from "@opencode-ai/core/util/path"
-import { FileIcon } from "@opencode-ai/ui/file-icon"
-import { ScrollView } from "@opencode-ai/ui/scroll-view"
-import { Dialog, DialogBody, DialogTitle } from "@opencode-ai/ui/v2/dialog-v2"
-import { Icon } from "@opencode-ai/ui/v2/icon"
-import { KeybindV2 } from "@opencode-ai/ui/v2/keybind-v2"
-import { TextInputV2 } from "@opencode-ai/ui/v2/text-input-v2"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { getDirectory, getFilename } from "@sutradhar/core/util/path"
+import { FileIcon } from "@sutradhar/ui/file-icon"
+import { ScrollView } from "@sutradhar/ui/scroll-view"
+import { Dialog, DialogBody, DialogTitle } from "@sutradhar/ui/v2/dialog-v2"
+import { Icon } from "@sutradhar/ui/v2/icon"
+import { KeybindV2 } from "@sutradhar/ui/v2/keybind-v2"
+import { TextInputV2 } from "@sutradhar/ui/v2/text-input-v2"
+import { useDialog } from "@sutradhar/ui/context/dialog"
 import { createEffect, createMemo, createUniqueId, For, Match, onCleanup, Show, Switch } from "solid-js"
 import { commandPaletteOptions, formatKeybindParts, useCommand } from "@/context/command"
 import { useGlobal } from "@/context/global"
@@ -205,9 +205,11 @@ export function CommandPaletteView(props: {
         </div>
         <div class="command-palette-v2-search">
           <TextInputV2
-            ref={(el) => (inputRef = el)}
+            ref={(el) => {
+              inputRef = el
+              requestAnimationFrame(() => el.focus({ preventScroll: true }))
+            }}
             value={search.state.query}
-            autofocus
             autocomplete="off"
             spellcheck={false}
             appearance="large"

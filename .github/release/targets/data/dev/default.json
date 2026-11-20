@@ -1,0 +1,39 @@
+{
+  "name": "sutradhar-data-dev",
+  "compatibilityDate": "2026-07-25",
+  "compatibilityFlags": ["nodejs_compat"],
+  "triggers": [
+    { "type": "fetch", "pattern": "dev.sutradhar.ai/data*", "zone": "dev.sutradhar.ai" },
+    { "type": "fetch", "pattern": "dev.sutradhar.ai/en/data*", "zone": "dev.sutradhar.ai" },
+    { "type": "fetch", "pattern": "dev.sutradhar.ai/zh/data*", "zone": "dev.sutradhar.ai" },
+    { "type": "fetch", "pattern": "dev.sutradhar.ai/zht/data*", "zone": "dev.sutradhar.ai" },
+    { "type": "fetch", "pattern": "dev.sutradhar.ai/ko/data*", "zone": "dev.sutradhar.ai" },
+    { "type": "fetch", "pattern": "dev.sutradhar.ai/de/data*", "zone": "dev.sutradhar.ai" },
+    { "type": "fetch", "pattern": "dev.sutradhar.ai/es/data*", "zone": "dev.sutradhar.ai" },
+    { "type": "fetch", "pattern": "dev.sutradhar.ai/fr/data*", "zone": "dev.sutradhar.ai" },
+    { "type": "fetch", "pattern": "dev.sutradhar.ai/it/data*", "zone": "dev.sutradhar.ai" },
+    { "type": "fetch", "pattern": "dev.sutradhar.ai/da/data*", "zone": "dev.sutradhar.ai" },
+    { "type": "fetch", "pattern": "dev.sutradhar.ai/ja/data*", "zone": "dev.sutradhar.ai" },
+    { "type": "fetch", "pattern": "dev.sutradhar.ai/pl/data*", "zone": "dev.sutradhar.ai" },
+    { "type": "fetch", "pattern": "dev.sutradhar.ai/ru/data*", "zone": "dev.sutradhar.ai" },
+    { "type": "fetch", "pattern": "dev.sutradhar.ai/uk/data*", "zone": "dev.sutradhar.ai" },
+    { "type": "fetch", "pattern": "dev.sutradhar.ai/ar/data*", "zone": "dev.sutradhar.ai" },
+    { "type": "fetch", "pattern": "dev.sutradhar.ai/no/data*", "zone": "dev.sutradhar.ai" },
+    { "type": "fetch", "pattern": "dev.sutradhar.ai/br/data*", "zone": "dev.sutradhar.ai" },
+    { "type": "fetch", "pattern": "dev.sutradhar.ai/th/data*", "zone": "dev.sutradhar.ai" },
+    { "type": "fetch", "pattern": "dev.sutradhar.ai/tr/data*", "zone": "dev.sutradhar.ai" }
+  ],
+  "observability": { "enabled": true },
+  "workersDev": false,
+  "previewUrls": false,
+  "env": {
+    "ASSETS": { "type": "assets" },
+    "OG_WORKER": { "type": "worker", "worker": "sutradhar-data-og-dev" },
+    "STAGE": { "type": "text", "value": "dev" },
+    "PUBLIC_URL": { "type": "text", "value": "https://dev.sutradhar.ai/data" },
+    "DATA_DATABASE_HOST": { "type": "secret" },
+    "DATA_DATABASE_USERNAME": { "type": "secret" },
+    "DATA_DATABASE_PASSWORD": { "type": "secret" }
+  },
+  "manifest": { "type": "partial", "mainModule": "index.mjs", "modules": {} }
+}

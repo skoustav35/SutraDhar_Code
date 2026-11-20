@@ -4,16 +4,19 @@ import { useGlobal } from "@/context/global"
 import { useLanguage } from "@/context/language"
 import { type ServerConnection, useServer } from "@/context/server"
 import { useServerSync } from "@/context/server-sync"
-import { base64Encode } from "@opencode-ai/core/util/encode"
-import { Button } from "@opencode-ai/ui/button"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
-import { Icon } from "@opencode-ai/ui/icon"
-import { Logo } from "@opencode-ai/ui/logo"
+import { base64Encode } from "@sutradhar/core/util/encode"
+import { Button } from "@sutradhar/ui/button"
+import { useDialog } from "@sutradhar/ui/context/dialog"
+import { Icon } from "@sutradhar/ui/icon"
+import { Logo } from "@sutradhar/ui/logo"
 import { useNavigate } from "@solidjs/router"
 import { DateTime } from "luxon"
-import { createMemo, For, Match, Switch } from "solid-js"
+import { createMemo, For, Match, Show, Switch } from "solid-js"
+import { ChatBrainstormHome } from "@/components/chat-mode/chat-brainstorm-view"
+import { useLayout } from "@/context/layout"
 
 export function LegacyHome() {
+  const layout = useLayout()
   const sync = useServerSync()
   const pickDirectory = useDirectoryPicker()
   const dialog = useDialog()
@@ -66,7 +69,8 @@ export function LegacyHome() {
   }
 
   return (
-    <div class="mx-auto mt-55 w-full md:w-auto px-4">
+    <Show when={!layout.appMode.isChat()} fallback={<ChatBrainstormHome />}>
+      <div class="mx-auto mt-55 w-full md:w-auto px-4">
       <Logo class="md:w-xl opacity-12" />
       <Button
         size="large"
@@ -137,6 +141,7 @@ export function LegacyHome() {
           </div>
         </Match>
       </Switch>
-    </div>
+      </div>
+    </Show>
   )
 }

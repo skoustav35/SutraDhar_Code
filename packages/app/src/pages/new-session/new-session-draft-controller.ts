@@ -54,6 +54,9 @@ export function createNewSessionDraftController(workspace: { worktree: () => str
     prompt: {
       ready: prompt.ready,
       readyPromise: () => prompt.ready.promise,
+      setText(text: string) {
+        prompt.set([{ type: "text", content: text, start: 0, end: text.length }], text.length)
+      },
     },
     project: {
       controls: projectControls,

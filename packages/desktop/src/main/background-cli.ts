@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process"
 import { existsSync } from "node:fs"
 import { chmod, copyFile, mkdir, rename, rm } from "node:fs/promises"
+import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
@@ -9,7 +10,7 @@ import { app } from "electron"
 const execFileAsync = promisify(execFile)
 const root = dirname(fileURLToPath(import.meta.url))
 const stateHome = process.env.XDG_STATE_HOME
-const desktopStateNames = ["ai.opencode.desktop.dev", "ai.opencode.desktop.beta", "ai.opencode.desktop"]
+const desktopStateNames = ["ai.sutradhar.desktop.dev", "ai.sutradhar.desktop.beta", "ai.sutradhar.desktop"]
 
 type Logger = {
   log(message: string, meta?: Record<string, unknown>): void
@@ -24,8 +25,15 @@ export async function startBackgroundCli(logger: Logger, shellStateHome?: string
   const version = await run(bundled, ["--version"], logger)
   const binary = app.isPackaged ? await installCli(bundled, version, logger) : bundled
 
+  const sutradharStateRoot = join(homedir(), ".sutradhar", "state")
   const candidates = [
-    ...new Set([stateHome, shellStateHome, ...desktopStateNames.map((name) => join(app.getPath("appData"), name))]),
+    ...new Set([
+      stateHome,
+      shellStateHome,
+      sutradharStateRoot,
+      ...desktopStateNames.map((name) => join(homedir(), ".sutradhar", "desktop", name)),
+      ...desktopStateNames.map((name) => join(app.getPath("appData"), name)),
+    ]),
   ].filter((candidate) => candidate === undefined || existsSync(candidate))
   const discovered = await Promise.all(
     candidates.map(async (candidate) => ({
@@ -47,12 +55,12 @@ export async function startBackgroundCli(logger: Logger, shellStateHome?: string
   })
   logger.log("v2 CLI background service ready", {
     existing: Boolean(found),
-    username: "opencode",
+    username: "sutradhar",
     ...endpoint(url),
   })
   return {
     url,
-    username: "opencode",
+    username: "sutradhar",
     password,
   }
 }
@@ -84,7 +92,11 @@ async function run(
   options: { redact?: boolean; stateHome?: string } = {},
 ) {
   logger.log("v2 CLI command started", { binary, args })
-  const env = { ...process.env }
+  const env: Record<string, string | undefined> = {
+    ...process.env,
+    SUTRADHAR_CHANNEL: process.env.SUTRADHAR_CHANNEL || (app.isPackaged ? undefined : "dev"),
+  }
+  if (!env.SUTRADHAR_CHANNEL) delete env.SUTRADHAR_CHANNEL
   if (options.stateHome === undefined) delete env.XDG_STATE_HOME
   else env.XDG_STATE_HOME = options.stateHome
   return execFileAsync(binary, args, { env, windowsHide: true }).then(
@@ -121,5 +133,5 @@ function endpoint(url: string | undefined) {
 }
 
 function executableName() {
-  return process.platform === "win32" ? "opencode-cli.exe" : "opencode-cli"
+  return process.platform === "win32" ? "sutradhar-cli.exe" : "sutradhar-cli"
 }

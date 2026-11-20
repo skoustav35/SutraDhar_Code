@@ -1,20 +1,20 @@
-import type { DesktopMenuAction } from "@opencode-ai/app/desktop-menu"
-import type { WslServersPlatform } from "@opencode-ai/app/wsl/types"
-import type { UpdaterState } from "@opencode-ai/app/updater"
-import type { DesktopNativeBundle } from "@opencode-ai/app/i18n/desktop-native"
+import type { DesktopMenuAction } from "@sutradhar/app/desktop-menu"
+import type { WslServersPlatform } from "@sutradhar/app/wsl/types"
+import type { UpdaterState } from "@sutradhar/app/updater"
+import type { DesktopNativeBundle } from "@sutradhar/app/i18n/desktop-native"
 export type {
   WslDistroProbe,
   WslInstalledDistro,
   WslJob,
   WslOnlineDistro,
-  WslOpencodeCheck,
+  WslSutradharCheck,
   WslRuntimeCheck,
   WslServerConfig,
   WslServerItem,
   WslServerRuntime,
   WslServersEvent,
   WslServersState,
-} from "@opencode-ai/app/wsl/types"
+} from "@sutradhar/app/wsl/types"
 
 export type ServerReadyData = {
   url: string
@@ -40,6 +40,12 @@ export type FatalRendererError = {
   version?: string
   platform: string
   os?: string
+}
+export type ComputerUseStatus = {
+  ready: boolean
+  endpoint?: string
+  browser?: { ready: boolean; backend: string }
+  desktop?: { ready: boolean; backend: string | null; platform: string }
 }
 
 export type ElectronAPI = {
@@ -113,4 +119,9 @@ export type ElectronAPI = {
   setForceFocus: (enabled: boolean) => Promise<void>
   recordFatalRendererError: (error: FatalRendererError) => Promise<void>
   setNativeTranslations: (bundle: DesktopNativeBundle) => Promise<void>
+  computerUse: {
+    status: () => Promise<ComputerUseStatus>
+    start: () => Promise<unknown>
+    stop: () => Promise<void>
+  }
 }

@@ -8,58 +8,68 @@ import {
   InvalidRequestReason,
   type LLMClientShape,
   type LLMRequest,
-} from "@opencode-ai/llm"
-import * as OpenAIChat from "@opencode-ai/llm/protocols/openai-chat"
-import { Database } from "@opencode-ai/core/database/database"
-import { makeLocationNode } from "@opencode-ai/core/effect/app-node"
-import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
-import { LayerNodePlatform } from "@opencode-ai/core/effect/app-node-platform"
-import { LayerNode } from "@opencode-ai/core/effect/layer-node"
-import { EventV2 } from "@opencode-ai/core/event"
-import { PermissionV2 } from "@opencode-ai/core/permission"
-import { EventTable } from "@opencode-ai/core/event/sql"
-import { Project } from "@opencode-ai/core/project"
-import { ProjectTable } from "@opencode-ai/core/project/sql"
-import { QuestionV2 } from "@opencode-ai/core/question"
-import { AbsolutePath } from "@opencode-ai/core/schema"
-import { SessionV2 } from "@opencode-ai/core/session"
-import { Snapshot } from "@opencode-ai/core/snapshot"
-import { ContextSnapshotDecodeError } from "@opencode-ai/core/session/error"
-import { SessionEvent } from "@opencode-ai/core/session/event"
-import { SessionInput } from "@opencode-ai/core/session/input"
-import { SessionMessage } from "@opencode-ai/core/session/message"
-import { Prompt } from "@opencode-ai/core/session/prompt"
-import { SessionProjector } from "@opencode-ai/core/session/projector"
-import { SessionExecution } from "@opencode-ai/core/session/execution"
-import { SessionRunCoordinator } from "@opencode-ai/core/session/run-coordinator"
-import { SessionRunner } from "@opencode-ai/core/session/runner"
-import * as SessionRunnerLLM from "@opencode-ai/core/session/runner/llm"
-import { SessionRunnerModel } from "@opencode-ai/core/session/runner/model"
-import { ToolRegistry } from "@opencode-ai/core/tool/registry"
-import { ApplicationTools } from "@opencode-ai/core/tool/application-tools"
-import { AgentV2 } from "@opencode-ai/core/agent"
-import { Config } from "@opencode-ai/core/config"
-import { ConfigCompaction } from "@opencode-ai/core/config/compaction"
-import { Tool } from "@opencode-ai/core/tool/tool"
+} from "@sutradhar/llm"
+import * as OpenAIChat from "@sutradhar/llm/protocols/openai-chat"
+import { Database } from "@sutradhar/core/database/database"
+import { makeLocationNode } from "@sutradhar/core/effect/app-node"
+import { AppNodeBuilder } from "@sutradhar/core/effect/app-node-builder"
+import { LayerNodePlatform } from "@sutradhar/core/effect/app-node-platform"
+import { LayerNode } from "@sutradhar/core/effect/layer-node"
+import { EventV2 } from "@sutradhar/core/event"
+import { PermissionV2 } from "@sutradhar/core/permission"
+import { EventTable } from "@sutradhar/core/event/sql"
+import { Project } from "@sutradhar/core/project"
+import { ProjectTable } from "@sutradhar/core/project/sql"
+import { QuestionV2 } from "@sutradhar/core/question"
+import { AbsolutePath } from "@sutradhar/core/schema"
+import { SessionV2 } from "@sutradhar/core/session"
+import { Snapshot } from "@sutradhar/core/snapshot"
+import { ContextSnapshotDecodeError } from "@sutradhar/core/session/error"
+import { SessionEvent } from "@sutradhar/core/session/event"
+import { SessionInput } from "@sutradhar/core/session/input"
+import { SessionMessage } from "@sutradhar/core/session/message"
+import { Prompt } from "@sutradhar/core/session/prompt"
+import { SessionProjector } from "@sutradhar/core/session/projector"
+import { SessionExecution } from "@sutradhar/core/session/execution"
+import { SessionRunCoordinator } from "@sutradhar/core/session/run-coordinator"
+import { SessionRunner } from "@sutradhar/core/session/runner"
+import * as SessionRunnerLLM from "@sutradhar/core/session/runner/llm"
+import { SessionRunnerModel } from "@sutradhar/core/session/runner/model"
+import { ToolRegistry } from "@sutradhar/core/tool/registry"
+import { ApplicationTools } from "@sutradhar/core/tool/application-tools"
+import { AgentV2 } from "@sutradhar/core/agent"
+import { Config } from "@sutradhar/core/config"
+import { ConfigCompaction } from "@sutradhar/core/config/compaction"
+import { Tool } from "@sutradhar/core/tool/tool"
 import {
   SessionContextEpochTable,
   SessionInputTable,
   SessionMessageTable,
   SessionTable,
-} from "@opencode-ai/core/session/sql"
-import { SessionStore } from "@opencode-ai/core/session/store"
-import { SystemContext } from "@opencode-ai/core/system-context"
-import { SystemContextRegistry } from "@opencode-ai/core/system-context/registry"
-import { SkillGuidance } from "@opencode-ai/core/skill/guidance"
-import { ReferenceGuidance } from "@opencode-ai/core/reference/guidance"
-import { ModelV2 } from "@opencode-ai/core/model"
-import { Location } from "@opencode-ai/core/location"
-import { ProviderV2 } from "@opencode-ai/core/provider"
+} from "@sutradhar/core/session/sql"
+import { SessionStore } from "@sutradhar/core/session/store"
+import { SystemContext } from "@sutradhar/core/system-context"
+import { SystemContextRegistry } from "@sutradhar/core/system-context/registry"
+import { SkillGuidance } from "@sutradhar/core/skill/guidance"
+import { ReferenceGuidance } from "@sutradhar/core/reference/guidance"
+import { ModelV2 } from "@sutradhar/core/model"
+import { Location } from "@sutradhar/core/location"
+import { ProviderV2 } from "@sutradhar/core/provider"
 import { Cause, DateTime, Deferred, Effect, Exit, Fiber, Layer, Schema, Stream } from "effect"
 import { asc, eq } from "drizzle-orm"
 import { testEffect } from "./lib/effect"
 
 const requests: LLMRequest[] = []
+const contextSystemTexts = (request: LLMRequest) =>
+  request.system
+    .map((part) => part.text)
+    .filter(
+      (text) =>
+        !text.startsWith("You are ") ||
+        !text.includes("operating inside Sutradhar") ||
+        !text.includes("Your name and identity is strictly and solely"),
+    )
+    .filter((text) => !text.startsWith("IMPORTANT IDENTITY DIRECTIVE:"))
 let response: LLMEvent[] = []
 let responses: LLMEvent[][] | undefined
 let responseStream: Stream.Stream<LLMEvent, LLMError> | undefined
@@ -591,6 +601,7 @@ describe("SessionRunnerLLM", () => {
         {
           sessionID,
           agent: AgentV2.ID.make("build"),
+          modelName: "Sutradhar",
           assistantMessageID: expect.stringMatching(/^msg_/),
           toolCallID: "call-application",
         },
@@ -751,7 +762,7 @@ describe("SessionRunnerLLM", () => {
       yield* session.prompt({ sessionID, prompt: Prompt.make({ text: "Second" }), resume: false })
       yield* session.resume(sessionID)
 
-      expect(requests.map((request) => request.system.map((part) => part.text))).toEqual([
+      expect(requests.map(contextSystemTexts)).toEqual([
         ["Initial context"],
         ["Initial context"],
       ])
@@ -789,7 +800,7 @@ describe("SessionRunnerLLM", () => {
       response = fragmentFixture("text", "text-build", ["Done"]).completeEvents
       yield* session.resume(sessionID)
 
-      expect(requests.at(-1)?.system.map((part) => part.text)).toEqual(["Build agent instructions", "Initial context"])
+      expect(contextSystemTexts(requests.at(-1)!)).toEqual(["Build agent instructions", "Initial context"])
     }),
   )
 
@@ -815,7 +826,7 @@ describe("SessionRunnerLLM", () => {
       response = fragmentFixture("text", "text-reviewer", ["Done"]).completeEvents
       yield* session.resume(sessionID)
 
-      expect(requests.at(-1)?.system.map((part) => part.text)).toEqual(["Reviewer instructions", "Initial context"])
+      expect(contextSystemTexts(requests.at(-1)!)).toEqual(["Reviewer instructions", "Initial context"])
       expect((yield* session.messages({ sessionID }))[0]).toMatchObject({ type: "assistant", agent: "reviewer" })
     }),
   )
@@ -844,7 +855,7 @@ describe("SessionRunnerLLM", () => {
       response = fragmentFixture("text", "text-selected", ["Done"]).completeEvents
       yield* session.resume(sessionID)
 
-      expect(requests.at(-1)?.system.map((part) => part.text)).toEqual(["Reviewer instructions", "Initial context"])
+      expect(contextSystemTexts(requests.at(-1)!)).toEqual(["Reviewer instructions", "Initial context"])
       expect((yield* session.messages({ sessionID }))[0]).toMatchObject({ type: "assistant", agent: "reviewer" })
     }),
   )
@@ -870,7 +881,7 @@ describe("SessionRunnerLLM", () => {
       yield* session.prompt({ sessionID, prompt: Prompt.make({ text: "Second" }), resume: false })
       yield* session.resume(sessionID)
 
-      expect(requests.map((request) => request.system.map((part) => part.text))).toEqual([
+      expect(requests.map(contextSystemTexts)).toEqual([
         ["Initial context\n\nBuild skills"],
         ["Initial context\n\nBuild skills"],
       ])
@@ -904,7 +915,7 @@ describe("SessionRunnerLLM", () => {
       response = []
       yield* session.resume(sessionID)
 
-      expect(requests.map((request) => request.system.map((part) => part.text))).toEqual([
+      expect(requests.map(contextSystemTexts)).toEqual([
         ["Initial context\n\nBuild skills"],
       ])
     }),
@@ -934,7 +945,7 @@ describe("SessionRunnerLLM", () => {
       response = []
       yield* session.resume(sessionID)
       expect(requests.map((request) => request.model)).toEqual([model])
-      expect(requests.map((request) => request.system.map((part) => part.text))).toEqual([["Initial context"]])
+      expect(requests.map(contextSystemTexts)).toEqual([["Initial context"]])
     }),
   )
 
@@ -982,7 +993,7 @@ describe("SessionRunnerLLM", () => {
       yield* session.prompt({ sessionID, prompt: Prompt.make({ text: "Third" }), resume: false })
       yield* session.resume(sessionID)
 
-      expect(requests.map((request) => request.system.map((part) => part.text))).toEqual([
+      expect(requests.map(contextSystemTexts)).toEqual([
         ["Initial context"],
         ["Initial context"],
         ["Initial context"],
@@ -1028,7 +1039,7 @@ describe("SessionRunnerLLM", () => {
       yield* session.prompt({ sessionID, prompt: Prompt.make({ text: "Third" }), resume: false })
       yield* session.resume(sessionID)
 
-      expect(requests.map((request) => request.system.map((part) => part.text))).toEqual([
+      expect(requests.map(contextSystemTexts)).toEqual([
         ["Initial context"],
         ["Initial context"],
         ["Initial context"],
@@ -1065,7 +1076,7 @@ describe("SessionRunnerLLM", () => {
       yield* session.prompt({ sessionID, prompt: Prompt.make({ text: "Second" }), resume: false })
       yield* session.resume(sessionID)
 
-      expect(requests.map((request) => request.system.map((part) => part.text))).toEqual([
+      expect(requests.map(contextSystemTexts)).toEqual([
         ["Initial context"],
         ["Replacement context"],
       ])
@@ -1103,12 +1114,12 @@ describe("SessionRunnerLLM", () => {
       expect(requests).toHaveLength(2)
       expect(requests.map((request) => request.http?.headers)).toEqual([
         {
-          "x-opencode-session-id": sessionID,
+          "x-sutradhar-session-id": sessionID,
           "x-session-affinity": sessionID,
           "X-Session-Id": sessionID,
         },
         {
-          "x-opencode-session-id": sessionID,
+          "x-sutradhar-session-id": sessionID,
           "x-session-affinity": sessionID,
           "X-Session-Id": sessionID,
         },
@@ -1368,7 +1379,7 @@ describe("SessionRunnerLLM", () => {
       yield* session.prompt({ sessionID, prompt: Prompt.make({ text: "Third" }), resume: false })
       yield* session.resume(sessionID)
 
-      expect(requests.at(-1)?.system.map((part) => part.text)).toEqual(["Initial context"])
+      expect(contextSystemTexts(requests.at(-1)!)).toEqual(["Initial context"])
       expect(systemTexts(requests.at(-1)!)).toContain("Changed context")
     }),
   )
@@ -1566,7 +1577,7 @@ describe("SessionRunnerLLM", () => {
       yield* Fiber.join(run)
 
       expect(requests.map((request) => request.model)).toEqual([model, replacementModel])
-      expect(requests.map((request) => request.system.map((part) => part.text))).toEqual([
+      expect(requests.map(contextSystemTexts)).toEqual([
         ["Initial context"],
         ["Initial context"],
       ])
@@ -2530,7 +2541,7 @@ describe("SessionRunnerLLM", () => {
       yield* session.resume(sessionID)
 
       expect(requests[0]?.http?.headers).toEqual({
-        "x-opencode-session-id": sessionID,
+        "x-sutradhar-session-id": sessionID,
         "x-session-affinity": sessionID,
         "X-Session-Id": sessionID,
       })
@@ -2555,8 +2566,8 @@ describe("SessionRunnerLLM", () => {
       yield* session.resume(sessionID)
 
       expect(requests[0]?.http?.headers).toEqual({
-        "x-opencode-session-id": sessionID,
-        "x-opencode-parent-session-id": parentID,
+        "x-sutradhar-session-id": sessionID,
+        "x-sutradhar-parent-session-id": parentID,
         "x-session-affinity": sessionID,
         "X-Session-Id": sessionID,
         "x-parent-session-id": parentID,

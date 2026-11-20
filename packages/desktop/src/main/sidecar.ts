@@ -54,12 +54,12 @@ async function start(command: StartCommand) {
     ensureLoopbackNoProxy()
     useSystemCertificates()
     useEnvProxy()
-    const { Server } = await import("virtual:opencode-server")
+    const { Server } = await import("virtual:sutradhar-server")
 
     listener = await Server.listen({
       port: command.port,
       hostname: command.hostname,
-      username: "opencode",
+      username: "sutradhar",
       password: command.password,
       cors: ["oc://renderer"],
     })
@@ -80,12 +80,10 @@ async function stop() {
   }
 }
 
-function prepareSidecarEnv(password: string, userDataPath: string) {
+function prepareSidecarEnv(password: string, _userDataPath: string) {
   Object.assign(process.env, {
-    OPENCODE_SERVER_USERNAME: "opencode",
-    OPENCODE_SERVER_PASSWORD: password,
-    OPENCODE_MODELS_URL: process.env.OPENCODE_MODELS_URL ?? "https://sutradhar-admin.vercel.app",
-    XDG_STATE_HOME: process.env.XDG_STATE_HOME ?? userDataPath,
+    SUTRADHAR_SERVER_USERNAME: "sutradhar",
+    SUTRADHAR_SERVER_PASSWORD: password,
   })
 }
 

@@ -1,9 +1,9 @@
-import type { SessionApi, SessionInfo, SessionListInput } from "@opencode-ai/client/promise"
-import type { Session } from "@opencode-ai/sdk/v2/client"
+import type { SessionApi, SessionInfo, SessionListInput } from "@sutradhar/app-client/promise"
+import type { Session } from "@sutradhar/sdk/v2/client"
 import { withTimestampedFallback } from "./session-title"
 
 export function normalizeSessionInfo(input: SessionInfo | Session): Session {
-  if (!("location" in input)) return input
+  if (!("location" in input)) return { ...input, title: withTimestampedFallback(input) }
   return {
     id: input.id,
     slug: input.id,

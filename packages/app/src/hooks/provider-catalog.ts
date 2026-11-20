@@ -1,4 +1,19 @@
-import type { NormalizedProviderListResponse } from "@opencode-ai/session-ui/context"
+import type { NormalizedProviderListResponse } from "@sutradhar/session-ui/context"
+
+export const popularProviders = [
+  "sutradhar",
+  "anthropic",
+  "github-copilot",
+  "openai",
+  "google",
+  "openrouter",
+  "vercel",
+]
+
+export const isFreeModelProvider = (_providerID: string) => false
+
+export const isFreeModel = (providerID: string, cost: { input: number } | undefined) =>
+  isFreeModelProvider(providerID) && (!cost || cost.input === 0)
 
 const emptyProviderCatalog: NormalizedProviderListResponse = { all: new Map(), connected: [], default: {} }
 

@@ -1,7 +1,7 @@
 import { createSignal } from "solid-js"
-import { Dialog } from "@opencode-ai/ui/dialog"
-import { Button } from "@opencode-ai/ui/button"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { Dialog } from "@sutradhar/ui/dialog"
+import { Button } from "@sutradhar/ui/button"
+import { useDialog } from "@sutradhar/ui/context/dialog"
 import { useLanguage } from "@/context/language"
 import { useSettings } from "@/context/settings"
 
@@ -66,7 +66,12 @@ export function DialogReleaseNotes(props: { highlights: Highlight[] }) {
       fit
       class="w-[min(calc(100vw-40px),720px)] h-[min(calc(100vh-40px),400px)] -mt-20 min-h-0 overflow-hidden"
     >
-      <div class="flex flex-1 min-w-0 min-h-0" tabIndex={0} autofocus onKeyDown={handleKeyDown}>
+      <div
+        ref={(el) => requestAnimationFrame(() => el.focus({ preventScroll: true }))}
+        class="flex flex-1 min-w-0 min-h-0"
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
+      >
         {/* Left side - Text content */}
         <div class="flex flex-col flex-1 min-w-0 p-8">
           {/* Top section - feature content (fixed position from top) */}

@@ -1,9 +1,11 @@
 export * as Pty from "./pty"
 
 import { makeLocationNode } from "./effect/app-node"
+import { existsSync } from "fs"
+import os from "os"
 import type { Disp, Proc } from "#pty"
 import { Context, Effect, Layer, Schema, Types } from "effect"
-import { Pty } from "@opencode-ai/schema/pty"
+import { Pty } from "@sutradhar/schema/pty"
 import { Config } from "./config"
 import { EventV2 } from "./event"
 import { Location } from "./location"
@@ -87,7 +89,7 @@ export interface Interface {
   readonly attach: (id: PtyID, input: AttachInput) => Effect.Effect<Attachment, NotFoundError | ExitedError>
 }
 
-export class Service extends Context.Service<Service, Interface>()("@opencode/v2/Pty") {}
+export class Service extends Context.Service<Service, Interface>()("@sutradhar/v2/Pty") {}
 
 const layer = Layer.effect(
   Service,
@@ -166,12 +168,13 @@ const layer = Layer.effect(
       const id = PtyID.ascending()
       const command = input.command || Shell.preferred(Config.latest(yield* config.entries(), "shell"))
       const args = Shell.login(command) ? [...(input.args ?? []), "-l"] : [...(input.args ?? [])]
-      const cwd = input.cwd || location.directory
+      const requestedCwd = input.cwd || location.directory
+      const cwd = existsSync(requestedCwd) ? requestedCwd : os.homedir()
       const env = {
         ...process.env,
         ...input.env,
         TERM: "xterm-256color",
-        OPENCODE_TERMINAL: "1",
+        SUTRADHAR_TERMINAL: "1",
       } as Record<string, string>
       if (process.platform === "win32") {
         env.LC_ALL = "C.UTF-8"

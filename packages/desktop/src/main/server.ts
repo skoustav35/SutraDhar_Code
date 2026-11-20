@@ -16,7 +16,7 @@ type SidecarMessage =
 
 export type SidecarListener = { stop: () => Promise<void> }
 
-const SIDECAR_SERVICE_NAME = "opencode server"
+const SIDECAR_SERVICE_NAME = "sutradhar server"
 const SIDECAR_START_STALL_TIMEOUT = 60_000
 const SIDECAR_STOP_TIMEOUT = 6_000
 
@@ -41,15 +41,14 @@ export function setDefaultServerUrl(url: string | null) {
   getStore().delete(DEFAULT_SERVER_URL_KEY)
 }
 
-export function preferAppEnv(userDataPath: string) {
+export function preferAppEnv(_userDataPath: string) {
   const shell = process.platform === "win32" ? null : getUserShell()
   const shellEnv = shell ? loadShellEnv(shell, getLogger()) : null
   Object.assign(process.env, {
     ...shellEnv,
-    OPENCODE_EXPERIMENTAL_ICON_DISCOVERY: "true",
-    OPENCODE_EXPERIMENTAL_FILEWATCHER: "true",
-    OPENCODE_CLIENT: "desktop",
-    XDG_STATE_HOME: process.env.XDG_STATE_HOME ?? userDataPath,
+    SUTRADHAR_EXPERIMENTAL_ICON_DISCOVERY: "true",
+    SUTRADHAR_EXPERIMENTAL_FILEWATCHER: "true",
+    SUTRADHAR_CLIENT: "cli",
   })
   return shellEnv
 }
@@ -193,7 +192,7 @@ export async function checkHealth(url: string, password?: string | null): Promis
 
   const headers = new Headers()
   if (password) {
-    const auth = Buffer.from(`opencode:${password}`).toString("base64")
+    const auth = Buffer.from(`sutradhar:${password}`).toString("base64")
     headers.set("authorization", `Basic ${auth}`)
   }
 

@@ -1,13 +1,13 @@
 import type {
   Config,
-  OpencodeClient,
+  SutradharClient,
   Path,
   Project,
   ProviderAuthResponse,
   SessionStatus,
-} from "@opencode-ai/sdk/v2/client"
+} from "@sutradhar/sdk/v2/client"
 import { showToast } from "@/utils/toast"
-import { getFilename } from "@opencode-ai/core/util/path"
+import { getFilename } from "@sutradhar/core/util/path"
 import { type Accessor, batch, createMemo, getOwner, onCleanup, onMount, untrack } from "solid-js"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useLanguage } from "@/context/language"
@@ -38,16 +38,17 @@ import { createRefreshQueue } from "./global-sync/queue"
 import { directoryKey } from "./global-sync/utils"
 import { PathKey } from "@/utils/path-key"
 import { createDirSyncContext } from "./directory-sync"
-import { createSimpleContext } from "@opencode-ai/ui/context"
-import { NormalizedProviderListResponse } from "@opencode-ai/session-ui/context"
+import { createSimpleContext } from "@sutradhar/ui/context"
+import { NormalizedProviderListResponse } from "@sutradhar/session-ui/context"
 import { createRefCountMap } from "@/utils/refcount"
 import { useGlobal } from "./global"
 import { ServerConnection, useServer } from "./server"
-import { retry } from "@opencode-ai/core/util/retry"
+import { retry } from "@sutradhar/core/util/retry"
 import type { ServerScope } from "@/utils/server-scope"
-import { createHomeSessionIndexCache } from "./global-sync/home-session-index"
+import { createHomeSessionIndexCache, loadHomeSessionIndex } from "./global-sync/home-session-index"
 import { persisted } from "@/utils/persist"
 import type { ServerApi } from "@/utils/server"
+import type { Session } from "@sutradhar/sdk/v2/client"
 import type {
   McpListInput,
   McpListOutput,
@@ -56,9 +57,10 @@ import type {
   McpResourceCatalogOutput,
   McpServer,
   SessionActiveOutput,
-} from "@opencode-ai/client/promise"
+} from "@sutradhar/app-client/promise"
 import { toggleMcp } from "./global-sync/mcp"
 import { createServerSession, type ServerSession } from "./server-session"
+import { registerSutradharGlobalBackend } from "./sutradhar-cloud-sync"
 
 type GlobalStore = {
   ready: boolean
@@ -94,7 +96,7 @@ export const loadMcpQuery = (
   scope: ServerScope,
   directory: string,
   api: McpListApi,
-  legacy?: OpencodeClient,
+  legacy?: SutradharClient,
   protocol?: Promise<"v1" | "v2">,
 ): ApiQueryOptions<Record<string, McpServer["status"]>, readonly [ServerScope, string, "mcp"]> =>
   queryOptions<
@@ -116,7 +118,7 @@ export const loadMcpResourcesQuery = (
   scope: ServerScope,
   directory: string,
   api: McpResourceApi,
-  legacy?: OpencodeClient,
+  legacy?: SutradharClient,
   protocol?: Promise<"v1" | "v2">,
 ): ApiQueryOptions<Record<string, McpResource>, readonly [ServerScope, string, "mcpResources"]> =>
   queryOptions<
@@ -144,7 +146,7 @@ export const loadMcpResourcesQuery = (
     placeholderData: {},
   })
 
-export const loadLspQuery = (scope: ServerScope, directory: string, sdk: OpencodeClient) =>
+export const loadLspQuery = (scope: ServerScope, directory: string, sdk: SutradharClient) =>
   queryOptions({
     queryKey: [scope, directory, "lsp"] as const,
     queryFn: () => sdk.lsp.status().then((r) => r.data ?? []),
@@ -178,9 +180,9 @@ export function seedActiveSessionStatuses(
 
 function makeQueryOptionsApi(
   scope: ServerScope,
-  serverSDK: () => OpencodeClient,
+  serverSDK: () => SutradharClient,
   serverAPI: ServerApi,
-  sdkFor: (dir: PathKey) => OpencodeClient,
+  sdkFor: (dir: PathKey) => SutradharClient,
   protocol: Promise<"v1" | "v2">,
 ) {
   return {
@@ -207,7 +209,7 @@ export function createServerSyncContextInner(serverSDK: ServerSDK) {
   const owner = getOwner()
   if (!owner) throw new Error("ServerSync must be created within owner")
 
-  const sdkCache = new Map<string, OpencodeClient>()
+  const sdkCache = new Map<string, SutradharClient>()
   const booting = new Map<string, Promise<void>>()
   const sessionLoads = new Map<string, Promise<void>>()
   const sessionMeta = new Map<string, { limit: number }>()
@@ -366,11 +368,7 @@ export function createServerSyncContextInner(serverSDK: ServerSDK) {
       void loadCommands(directory, serverSDK.api.command, sdkFor(directory), serverSDK.protocol)
         .then((commands) => setStore("command", commands))
         .catch((err) => {
-          showToast({
-            variant: "error",
-            title: language.t("toast.project.reloadFailed.title", { project: getFilename(directory) }),
-            description: formatServerError(err, language.t),
-          })
+          console.warn("Failed to reload commands on MCP update for " + directory, err)
         })
     },
     onDispose: (directory) => {
@@ -631,6 +629,25 @@ export function createServerSyncContextInner(serverSDK: ServerSDK) {
   })
 
   onMount(() => {
+    const refreshProviders = () => {
+      void queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey[0] === serverSDK.scope && query.queryKey[2] === "providers",
+      })
+    }
+
+    const timer = setInterval(refreshProviders, 15_000)
+    const onFocus = () => {
+      refreshProviders()
+    }
+    window.addEventListener("focus", onFocus)
+
+    onCleanup(() => {
+      clearInterval(timer)
+      window.removeEventListener("focus", onFocus)
+    })
+  })
+
+  onMount(() => {
     if (typeof requestAnimationFrame === "function") {
       eventFrame = requestAnimationFrame(() => {
         eventFrame = undefined
@@ -639,12 +656,46 @@ export function createServerSyncContextInner(serverSDK: ServerSDK) {
           void serverSDK.event.start()
         }, 0)
       })
-    } else {
-      eventTimer = setTimeout(() => {
-        eventTimer = undefined
-        void serverSDK.event.start()
-      }, 0)
-    }
+      } else {
+        eventTimer = setTimeout(() => {
+          eventTimer = undefined
+          void serverSDK.event.start()
+        }, 0)
+      }
+    registerSutradharGlobalBackend({
+      bridge: { data: session.data, sync: session.sync },
+      listAllSessions: async () => {
+        const collected = new Map<string, Session>()
+        for (const [id, info] of Object.entries(session.data.info)) {
+          if (info) collected.set(id, info)
+        }
+        if ((await serverSDK.protocol) !== "v1") {
+          const result = await loadHomeSessionIndex((input, options) =>
+            serverSDK.client.v2.session.list(input, options),
+          ).catch(() => undefined)
+          for (const item of result?.sessions ?? []) {
+            collected.set(item.id, item)
+            session.remember(item)
+          }
+          return [...collected.values()]
+        }
+        const dirs = new Set<string>([
+          ...globalStore.project.flatMap((project) => [project.worktree, ...(project.sandboxes ?? [])]),
+          ...Object.keys(children.children),
+        ])
+        for (const dir of dirs) {
+          if (!dir) continue
+          const result = await loadRootSessionsV1({ client: sdkFor(dir), directory: dir, limit: 200 }).catch(
+            () => undefined,
+          )
+          for (const item of result?.data ?? []) {
+            collected.set(item.id, item)
+            session.remember(item)
+          }
+        }
+        return [...collected.values()]
+      },
+    })
   })
 
   const projectApi = {

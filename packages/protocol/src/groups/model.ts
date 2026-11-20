@@ -1,5 +1,5 @@
-import { Model } from "@opencode-ai/schema/model"
-import { Location } from "@opencode-ai/schema/location"
+import { Model } from "@sutradhar/schema/model"
+import { Location } from "@sutradhar/schema/location"
 import { Schema } from "effect"
 import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
 import { ServiceUnavailableError } from "../errors"
@@ -18,6 +18,21 @@ export const ModelGroup = HttpApiGroup.make("server.model")
           identifier: "v2.model.list",
           summary: "List models",
           description: "Retrieve available models ordered by release date.",
+        }),
+      ),
+  )
+  .add(
+    HttpApiEndpoint.get("model.default", "/api/model/default", {
+      query: LocationQuery,
+      success: Location.response(Schema.NullOr(Model.Info)),
+      error: ServiceUnavailableError,
+    })
+      .annotateMerge(locationQueryOpenApi)
+      .annotateMerge(
+        OpenApi.annotations({
+          identifier: "v2.model.default",
+          summary: "Get default model",
+          description: "Retrieve the default active model for this location.",
         }),
       ),
   )

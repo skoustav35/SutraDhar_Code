@@ -41,9 +41,9 @@ playground/
 **/.omo/
 /result
 refs/
-/opencode.json
+/sutradhar.json
 a.out
 target/
 .scripts/
 .direnv/
-opencode-d
+sutradhar-d
